@@ -1,5 +1,5 @@
 //! Commonly used functionality.
 
-mod bitman;
-mod memman;
-mod timing;
+pub mod bitman;
+pub mod memman;
+pub mod timing;

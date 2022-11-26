@@ -2,4 +2,6 @@
 
 #![no_std]
 
-mod common;
+pub mod common;
+pub mod interrupt;
+pub mod peripheral;
