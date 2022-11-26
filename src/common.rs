@@ -2,3 +2,4 @@
 
 mod bitman;
 mod memman;
+mod timing;
