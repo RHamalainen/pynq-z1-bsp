@@ -1,0 +1,18 @@
+[package]
+name = "pynq-z1-bsp"
+version = "0.1.0"
+authors = ["Roni Hämäläinen <roni.hamalainen@tuni.fi>"]
+edition = "2021"
+description = "Board support package for PYNQ-Z1."
+readme = "README.md"
+repository = "https://github.com/RHamalainen/pynq-z1-bsp"
+license = "MIT OR Apache-2.0"
+keywords = ["pynq", "pynq-z1", "bsp", "armv7a", "cortex-a9"]
+categories = ["embedded", "hardware-support", "no-std"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.0.77"
