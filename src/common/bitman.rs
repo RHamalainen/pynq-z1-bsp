@@ -16,6 +16,8 @@ macro_rules! ImplementSetBitwise {
     ($type:ty) => {
         impl SetBitwise for $type {
             type Type = Self;
+            #[inline]
+            #[must_use]
             fn set_bit(&self, index: Self) -> Self {
                 assert!((index as u32) < Self::BITS, "Invalid index.");
 
@@ -46,6 +48,8 @@ macro_rules! ImplementClearBitwise {
     ($type:ty) => {
         impl ClearBitwise for $type {
             type Type = Self;
+            #[inline]
+            #[must_use]
             fn clear_bit(&self, index: Self) -> Self {
                 assert!((index as u32) < Self::BITS, "Invalid index.");
 
@@ -79,6 +83,8 @@ macro_rules! ImplementReadBitwise {
     ($type:ty) => {
         impl ReadBitwise for $type {
             type Type = Self;
+            #[inline]
+            #[must_use]
             fn read_bit(&self, index: Self) -> bool {
                 assert!((index as u32) < Self::BITS, "Invalid index.");
 
