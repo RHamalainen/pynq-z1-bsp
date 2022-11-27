@@ -1,5 +1,6 @@
 //! Interrupt request numbers.
 
+#![allow(unused)]
 #![allow(clippy::missing_docs_in_private_items)]
 
 /// Software generated interrupts.
