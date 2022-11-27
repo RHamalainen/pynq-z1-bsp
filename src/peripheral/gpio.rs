@@ -34,6 +34,8 @@ pub enum InterruptType {
 
 impl InterruptType {
     /// Transform to boolean.
+    #[inline]
+    #[must_use]
     pub const fn as_bool(self) -> bool {
         match self {
             Self::Level => false,
@@ -54,6 +56,8 @@ pub enum InterruptPolarity {
 
 impl InterruptPolarity {
     /// Transform to boolean.
+    #[inline]
+    #[must_use]
     pub const fn as_bool(self) -> bool {
         match self {
             Self::ActiveLowOrFallingEdge => false,
@@ -74,6 +78,8 @@ pub enum InterruptEdgeTriggeringMode {
 
 impl InterruptEdgeTriggeringMode {
     /// Transform to boolean.
+    #[inline]
+    #[must_use]
     pub const fn as_bool(self) -> bool {
         match self {
             Self::Single => false,
@@ -112,6 +118,12 @@ pub struct Gpio {
 
 impl Gpio {
     /// Get MIO bank by pin index.
+    ///
+    /// # Panics
+    ///
+    /// Invalid index.
+    #[inline]
+    #[must_use]
     pub fn get_mio_bank_by_pin_index(&self, index: u32) -> &Bank {
         for bank_index in self.mio_bank_indices.clone() {
             let bank_pin_range = &self.bank_pin_ranges[bank_index as usize];
@@ -123,6 +135,12 @@ impl Gpio {
     }
 
     /// Get EMIO bank by pin index.
+    ///
+    /// # Panics
+    ///
+    /// Invalid index.
+    #[inline]
+    #[must_use]
     pub fn get_emio_bank_by_pin_index(&self, index: u32) -> &Bank {
         for bank_index in self.emio_bank_indices.clone() {
             let bank_pin_range = &self.bank_pin_ranges[bank_index as usize];
@@ -134,6 +152,8 @@ impl Gpio {
     }
 
     /// Read MIO pin input.
+    #[inline]
+    #[must_use]
     pub fn read_mio_input(&self, index: u32) -> bool {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -141,6 +161,8 @@ impl Gpio {
     }
 
     /// Read EMIO pin input.
+    #[inline]
+    #[must_use]
     pub fn read_emio_input(&self, index: u32) -> bool {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -148,6 +170,7 @@ impl Gpio {
     }
 
     /// Set MIO pin direction.
+    #[inline]
     pub fn set_mio_direction(&self, index: u32, direction: PinDirection) {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -159,6 +182,7 @@ impl Gpio {
     }
 
     /// Set EMIO pin direction.
+    #[inline]
     pub fn set_emio_direction(&self, index: u32, direction: PinDirection) {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -170,6 +194,7 @@ impl Gpio {
     }
 
     /// Enable or disable MIO pin interrupts.
+    #[inline]
     pub fn toggle_mio_interrupt(&self, index: u32, enabled: bool) {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -182,6 +207,7 @@ impl Gpio {
     }
 
     /// Enable or disable EMIO pin interrupts.
+    #[inline]
     pub fn toggle_emio_interrupt(&self, index: u32, enabled: bool) {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -194,6 +220,8 @@ impl Gpio {
     }
 
     /// Read MIO pin interrupt status.
+    #[inline]
+    #[must_use]
     pub fn read_mio_interrupt_status(&self, index: u32) -> bool {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -201,6 +229,8 @@ impl Gpio {
     }
 
     /// Read EMIO pin interrupt status.
+    #[inline]
+    #[must_use]
     pub fn read_emio_interrupt_status(&self, index: u32) -> bool {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -208,6 +238,7 @@ impl Gpio {
     }
 
     /// Set MIO pin interrupt type.
+    #[inline]
     pub fn set_mio_interrupt_type(&self, index: u32, value: InterruptType) {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -220,6 +251,7 @@ impl Gpio {
     }
 
     /// Set EMIO pin interrupt type.
+    #[inline]
     pub fn set_emio_interrupt_type(&self, index: u32, value: InterruptType) {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -232,6 +264,7 @@ impl Gpio {
     }
 
     /// Set MIO pin interrupt polarity.
+    #[inline]
     pub fn set_mio_interrupt_polarity(&self, index: u32, value: InterruptPolarity) {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -244,6 +277,7 @@ impl Gpio {
     }
 
     /// Set EMIO pin interrupt polarity.
+    #[inline]
     pub fn set_emio_interrupt_polarity(&self, index: u32, value: InterruptPolarity) {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -256,6 +290,7 @@ impl Gpio {
     }
 
     /// Set MIO pin edge triggering mode.
+    #[inline]
     pub fn set_mio_edge_triggering_mode(&self, index: u32, value: InterruptEdgeTriggeringMode) {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -268,6 +303,7 @@ impl Gpio {
     }
 
     /// Set EMIO pin edge triggering mode.
+    #[inline]
     pub fn set_emio_edge_triggering_mode(&self, index: u32, value: InterruptEdgeTriggeringMode) {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
