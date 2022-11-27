@@ -1,4 +1,5 @@
 //! Interrupt functionality.
 
-mod gic;
-mod irq_numbers;
+pub mod gic;
+pub mod handler;
+pub mod irq_numbers;
