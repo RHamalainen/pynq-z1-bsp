@@ -3,13 +3,18 @@
 #![no_std]
 #![no_main]
 
-use core::{arch::asm, panic::PanicInfo};
+use core::panic::PanicInfo;
+use pynq_z1_bsp::{common::instruction::nop, peripheral::uart::UART0};
 
 #[no_mangle]
 #[inline(never)]
 #[link_section = ".text"]
 fn main() {
-    unsafe { asm!("nop") };
+    unsafe {
+        UART0.configure();
+        UART0.toggle(true);
+        UART0.println("Hello, World!");
+    }
 }
 
 #[panic_handler]
