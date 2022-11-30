@@ -1,6 +1,6 @@
 //! Bit manipulation.
 
-use core::ops::{BitAnd, BitOr, Not, Shl, Shr};
+use core::ops::{BitAnd, BitOr, Not, RangeInclusive, Shl, Shr};
 
 /// Can set single bit high.
 pub trait SetBitwise {
@@ -103,3 +103,156 @@ macro_rules! ImplementReadBitwise {
 
 ImplementReadBitwise!(u8);
 ImplementReadBitwise!(u32);
+
+/// Can read values of multiple bits.
+pub trait ReadBitwiseRange {
+    /// My type.
+    type Type;
+
+    /// Read multiple bits.
+    fn read_bits(&self, range: RangeInclusive<Self::Type>) -> Self::Type;
+}
+
+/// Implement `ReadBitwiseRange` for given type.
+macro_rules! ImplementReadBitwiseRange {
+    ($type:ty) => {
+        impl ReadBitwiseRange for $type {
+            type Type = Self;
+            #[inline]
+            #[must_use]
+            fn read_bits(&self, range: RangeInclusive<Self>) -> Self {
+                let bits = Self::BITS as Self;
+                let start = *range.start();
+                let end = *range.end();
+
+                assert!(range.is_empty().not(), "Can not read empty range of bits.");
+                assert!(
+                    end < bits,
+                    "Range end {end} must be less than type's bitwidth {bits}.",
+                );
+
+                // Clear bits lower than range start.
+                let temporary_1 = self.shr(start);
+                let temporary_2 = temporary_1.shl(start);
+
+                // Clear bits higher than range end.
+                let amount = bits - end - 1;
+                let temporary_3 = temporary_2.shl(amount);
+                let temporary_4 = temporary_3.shr(amount);
+
+                // Move bit range to index 0.
+                let temporary_5 = temporary_4.shr(start);
+
+                temporary_5
+            }
+        }
+    };
+}
+
+ImplementReadBitwiseRange!(u8);
+ImplementReadBitwiseRange!(u32);
+
+/// Can set multiple bits.
+pub trait SetBitwiseRange {
+    /// My type.
+    type Type;
+
+    /// Set multiple bits.
+    fn set_bits(&self, range: RangeInclusive<Self::Type>) -> Self::Type;
+}
+
+/// Implement `SetBitwiseRange` for given type.
+macro_rules! ImplementSetBitwiseRange {
+    ($type:ty) => {
+        impl SetBitwiseRange for $type {
+            type Type = Self;
+            #[inline]
+            #[must_use]
+            fn set_bits(&self, range: RangeInclusive<Self>) -> Self {
+                let bits = Self::BITS as Self;
+                let start = *range.start();
+                let end = *range.end();
+
+                assert!(range.is_empty().not(), "Can not set empty range of bits.");
+                assert!(
+                    end < bits,
+                    "Range end {} must be less than type's bitwidth {}.",
+                    end,
+                    bits,
+                );
+
+                let mask: Self = 0;
+                let mask = mask.not();
+
+                // Clear bits lower than range start.
+                let mask = mask.shr(start);
+                let mask = mask.shl(start);
+
+                // Clear bits higher than range end.
+                let amount = bits - end - 1;
+                let mask = mask.shl(amount);
+                let mask = mask.shr(amount);
+
+                // Set masked bits.
+                let value = self.bitor(mask);
+                value
+            }
+        }
+    };
+}
+
+ImplementSetBitwiseRange!(u8);
+ImplementSetBitwiseRange!(u32);
+
+/// Can write multiple bits.
+pub trait WriteBitwise {
+    /// My type.
+    type Type;
+
+    /// Write multiple bits.
+    fn write_bits(&self, start: Self::Type, value: Self::Type, length: Self::Type) -> Self::Type;
+}
+
+/// Implement `WriteBitwise` for given type.
+macro_rules! ImplementWriteBitwise {
+    ($type:ty) => {
+        impl WriteBitwise for $type {
+            type Type = Self;
+            #[inline]
+            #[must_use]
+            fn write_bits(&self, start: Self, value: Self, length: Self) -> Self {
+                let bits = Self::BITS as Self;
+
+                assert!(
+                    start < bits,
+                    "Start {} must be less than type's bitwidth {}.",
+                    start,
+                    bits
+                );
+                assert!(0 < length, "Length {} must be greater than zero.", length);
+                assert!(
+                    length <= bits,
+                    "Length {} must be less or equal to type's bitwidth {}.",
+                    length,
+                    bits,
+                );
+
+                let mask1: Self = 0;
+                let mask1 = mask1.set_bits(0..=length - 1);
+                let mask1 = mask1.shl(start);
+                let mask1 = mask1.not();
+
+                let mask2 = value;
+                let mask2 = mask2.shl(start);
+
+                let value = self.bitand(mask1);
+                let value = value.bitor(mask2);
+
+                value
+            }
+        }
+    };
+}
+
+ImplementWriteBitwise!(u8);
+ImplementWriteBitwise!(u32);
