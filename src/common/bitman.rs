@@ -1,6 +1,11 @@
 //! Bit manipulation.
 
-use core::ops::{BitAnd, BitOr, Not, RangeInclusive, Shl, Shr};
+use core::ops::BitAnd;
+use core::ops::BitOr;
+use core::ops::Not;
+use core::ops::RangeInclusive;
+use core::ops::Shl;
+use core::ops::Shr;
 
 /// Can set single bit high.
 pub trait SetBitwise {

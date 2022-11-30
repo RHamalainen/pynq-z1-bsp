@@ -12,13 +12,13 @@
 //!
 //! - modem
 
-use crate::common::{
-    bitman::ReadBitwise,
-    instruction::nop,
-    memman::{
-        clear_address_bit, read_address_bit, read_from_address, set_address_bit, write_to_address,
-    },
-};
+use crate::common::bitman::ReadBitwise;
+use crate::common::instruction::nop;
+use crate::common::memman::clear_address_bit;
+use crate::common::memman::read_address_bit;
+use crate::common::memman::read_from_address;
+use crate::common::memman::set_address_bit;
+use crate::common::memman::write_to_address;
 use core::ops::BitAnd;
 
 /// UART clock source configuration.

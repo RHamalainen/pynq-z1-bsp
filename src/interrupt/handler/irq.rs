@@ -1,6 +1,7 @@
 //! IRQ handler.
 
-use crate::common::memman::{read_from_address, write_to_address};
+use crate::common::memman::read_from_address;
+use crate::common::memman::write_to_address;
 
 /// Base address of ICC.
 pub const ADDRESS_ICC_BASE: u32 = 0xF8F0_0100;

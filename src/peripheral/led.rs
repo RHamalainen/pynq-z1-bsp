@@ -1,6 +1,7 @@
 //! Light-emitting diodes.
 
-use crate::common::memman::{clear_address_bit, set_address_bit};
+use crate::common::memman::clear_address_bit;
+use crate::common::memman::set_address_bit;
 
 pub mod rgb;
 

@@ -1,6 +1,7 @@
 //! Light-emitting diode with colors.
 
-use crate::common::memman::{clear_address_bit, set_address_bit};
+use crate::common::memman::clear_address_bit;
+use crate::common::memman::set_address_bit;
 
 /// Interface to board RGB LED.
 pub struct RgbLed {

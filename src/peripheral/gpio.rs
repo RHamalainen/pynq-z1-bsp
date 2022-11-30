@@ -6,8 +6,11 @@
 //! - Bank 2 controls 32 EMIO pins.
 //! - Bank 3 controls 32 EMIO pins.
 
-use crate::common::memman::{clear_address_bit, read_address_bit, set_address_bit};
-use core::ops::{RangeInclusive, Rem};
+use crate::common::memman::clear_address_bit;
+use crate::common::memman::read_address_bit;
+use crate::common::memman::set_address_bit;
+use core::ops::RangeInclusive;
+use core::ops::Rem;
 
 /// Base address for memory mapped GPIO.
 pub const ADDRESS_GPIO_BASE: u32 = 0xE000_A000;
