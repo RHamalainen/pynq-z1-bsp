@@ -1,7 +1,13 @@
 //! Memory address manipulation.
 
-use super::bitman::{ClearBitwise, ReadBitwise, SetBitwise};
-use core::ptr::{read_volatile, write_volatile};
+use super::bitman::ClearBitwise;
+use super::bitman::ReadBitwise;
+use super::bitman::ReadBitwiseRange;
+use super::bitman::SetBitwise;
+use super::bitman::WriteBitwise;
+use core::ops::RangeInclusive;
+use core::ptr::read_volatile;
+use core::ptr::write_volatile;
 
 /// Read value from memory address.
 #[inline]
@@ -42,4 +48,22 @@ pub fn clear_address_bit(address: *mut u32, index: u32) {
 pub fn read_address_bit(address: *mut u32, index: u32) -> bool {
     let value = read_from_address(address);
     value.read_bit(index)
+}
+
+/// Read multiple bits from memory address.
+#[inline]
+#[must_use]
+pub fn read_address_bits(address: *mut u32, indices: RangeInclusive<u32>) -> u32 {
+    let value = read_from_address(address);
+    value.read_bits(indices)
+}
+
+/// Write multiple bits to memory address.
+#[inline]
+pub fn write_address_bits(address: *mut u32, indices: RangeInclusive<u32>, value: u32) {
+    let start = *indices.start();
+    let length = indices.end() - indices.start();
+    let old = read_from_address(address);
+    let new = old.write_bits(start, value, length);
+    write_to_address(address, new);
 }
