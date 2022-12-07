@@ -1,7 +1,9 @@
 //! IRQ handler.
 
+use crate::common::bitman::ReadBitwiseRange;
 use crate::common::memman::read_from_address;
 use crate::common::memman::write_to_address;
+use crate::interrupt::irq_numbers::Irq;
 
 /// Base address of ICC.
 pub const ADDRESS_ICC_BASE: u32 = 0xF8F0_0100;
@@ -15,11 +17,9 @@ pub const ADDRESS_ICC_EOIR: *mut u32 = (ADDRESS_ICC_BASE + 0x10) as *mut u32;
 #[inline(never)]
 fn handle_irq() {
     let iar = read_from_address(ADDRESS_ICC_IAR);
-    /* TODO
     let interrupt_id = iar.read_bits(0..=9);
-    match interrupt_id {
-        unknown => panic!("Unknown IRQ number: {}", unknown),
+    match Irq::from_u32(interrupt_id) {
+        _ => (),
     }
-    */
     write_to_address(ADDRESS_ICC_EOIR, iar);
 }
