@@ -5,3 +5,4 @@
 pub mod common;
 pub mod interrupt;
 pub mod peripheral;
+pub mod scc;
