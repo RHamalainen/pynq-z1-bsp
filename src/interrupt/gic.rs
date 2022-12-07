@@ -204,6 +204,7 @@ impl Gic {
 
     /// True if interrupt is enabled.
     #[inline]
+    #[must_use]
     pub fn is_interrupt_enabled(&self, interrupt_id: usize) -> bool {
         let offset_register = interrupt_id.div(32).mul(4);
         let offset_bit = interrupt_id.rem(32) as u32;
@@ -308,6 +309,7 @@ impl Gic {
         model: InterruptHandlingModel,
     ) {
         // TODO: disable corresponding interrupt before altering
+        todo!();
     }
 
     #[inline]
