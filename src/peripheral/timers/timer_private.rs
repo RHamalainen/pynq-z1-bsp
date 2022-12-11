@@ -114,6 +114,12 @@ impl TimerPrivate {
         };
         action(self.address_control, 0);
     }
+
+    /// Clear timer interrupt.
+    #[inline]
+    pub fn clear_interrupt(&self) {
+        set_address_bit(self.address_interrupt_status, 0);
+    }
 }
 
 /// Private timer.
