@@ -11,5 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - uses: carlosperate/arm-none-eabi-gcc-action@v1
+    - name: Check
+      run: arm-none-eabi-gcc --version
+    - name: Install target
+      run: rustup target add armv7a-none-eabi
     - name: Build
       run: cargo build --verbose
