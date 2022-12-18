@@ -198,6 +198,22 @@ impl Gpio {
         action(bank.address_output_data, bit_index);
     }
 
+    /// Read MIO pin output.
+    #[inline]
+    pub fn read_mio_output(&self, index: u32) -> bool {
+        let bank = self.get_mio_bank_by_pin_index(index);
+        let bit_index = index.rem(32);
+        read_address_bit(bank.address_output_data, bit_index)
+    }
+
+    /// Read EMIO pin output.
+    #[inline]
+    pub fn read_emio_output(&self, index: u32) -> bool {
+        let bank = self.get_emio_bank_by_pin_index(index);
+        let bit_index = index.rem(32);
+        read_address_bit(bank.address_output_data, bit_index)
+    }
+
     /// Enable MIO pin output.
     #[inline]
     pub fn toggle_mio_output(&self, index: u32, enabled: bool) {
