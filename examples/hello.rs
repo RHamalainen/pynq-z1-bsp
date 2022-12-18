@@ -4,7 +4,8 @@
 #![no_main]
 
 use core::panic::PanicInfo;
-use pynq_z1_bsp::{common::instruction::nop, peripheral::uart::UART0};
+use pynq_z1_bsp::common::instruction::nop;
+use pynq_z1_bsp::peripheral::uart::UART0;
 
 #[no_mangle]
 #[inline(never)]
@@ -13,7 +14,14 @@ fn main() {
     unsafe {
         UART0.configure();
         UART0.toggle(true);
-        UART0.println("Hello, World!");
+    }
+    loop {
+        for _ in 0..1_000 {
+            nop();
+        }
+        unsafe {
+            UART0.println("Hello, World!");
+        }
     }
 }
 
