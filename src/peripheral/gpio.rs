@@ -174,7 +174,6 @@ impl Gpio {
 
     /// Write MIO pin output.
     #[inline]
-    #[must_use]
     pub fn write_mio_output(&self, index: u32, state: bool) {
         let bank = self.get_mio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -188,7 +187,6 @@ impl Gpio {
 
     /// Write EMIO pin output.
     #[inline]
-    #[must_use]
     pub fn write_emio_output(&self, index: u32, state: bool) {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
@@ -198,6 +196,32 @@ impl Gpio {
             clear_address_bit
         };
         action(bank.address_output_data, bit_index);
+    }
+
+    /// Enable MIO pin output.
+    #[inline]
+    pub fn toggle_mio_output(&self, index: u32, enabled: bool) {
+        let bank = self.get_mio_bank_by_pin_index(index);
+        let bit_index = index.rem(32);
+        let action = if enabled {
+            set_address_bit
+        } else {
+            clear_address_bit
+        };
+        action(bank.address_output_enable, bit_index);
+    }
+
+    /// Enable EMIO pin output.
+    #[inline]
+    pub fn toggle_emio_output(&self, index: u32, enabled: bool) {
+        let bank = self.get_emio_bank_by_pin_index(index);
+        let bit_index = index.rem(32);
+        let action = if enabled {
+            set_address_bit
+        } else {
+            clear_address_bit
+        };
+        action(bank.address_output_enable, bit_index);
     }
 
     /// Set MIO pin direction.
