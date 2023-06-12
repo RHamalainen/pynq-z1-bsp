@@ -299,6 +299,14 @@ impl Gpio {
         read_address_bit(bank.address_interrupt_status, bit_index)
     }
 
+    /// Clear MIO pin interrupt.
+    #[inline]
+    pub fn clear_mio_interrupt(&self, index: u32) {
+        let bank = self.get_mio_bank_by_pin_index(index);
+        let bit_index = index.rem(32);
+        set_address_bit(bank.address_interrupt_status, bit_index);
+    }
+
     /// Read EMIO pin interrupt status.
     #[inline]
     #[must_use]
@@ -306,6 +314,14 @@ impl Gpio {
         let bank = self.get_emio_bank_by_pin_index(index);
         let bit_index = index.rem(32);
         read_address_bit(bank.address_interrupt_status, bit_index)
+    }
+
+    /// Clear EMIO pin interrupt.
+    #[inline]
+    pub fn clear_emio_interrupt(&self, index: u32) {
+        let bank = self.get_emio_bank_by_pin_index(index);
+        let bit_index = index.rem(32);
+        set_address_bit(bank.address_interrupt_status, bit_index);
     }
 
     /// Set MIO pin interrupt type.
