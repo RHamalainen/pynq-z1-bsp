@@ -1,4 +1,19 @@
 //! General interrupt controller.
+//!
+//! Board uses 5 bits to indicate interrupt's priority.
+//! The lower the value, the higher the priority.
+//!
+//! # How to use?
+//!
+//! ```ignore
+//! GIC.toggle_enable(false);
+//! GIC.toggle_interrupt_enable(<irq number>, true);
+//! GIC.set_interrupt_targets(<irq number>, 0b1);
+//! GIC.set_interrupt_priority(<irq number>, 0b0);
+//! GIC.toggle_enable(true);
+//! ```
+//!
+//! Note that you also need to configure `ICC` to enable detection of interrupts by the processor core.
 
 #![allow(unused)]
 #![allow(clippy::missing_docs_in_private_items)]
@@ -13,9 +28,6 @@ use crate::common::memman::read_address_bit;
 use crate::common::memman::read_address_bits;
 use crate::common::memman::set_address_bit;
 use crate::common::memman::write_address_bits;
-
-// Board uses 5 bits for priority.
-// The lower the value, the higher the priority.
 
 /// Base address for memory mapped interrupt controller distributor.
 pub const ADDRESS_ICD_BASE: u32 = 0xF8F0_1000;
@@ -191,7 +203,7 @@ impl Gic {
     /// Enable or disable interrupt.
     #[inline]
     pub fn toggle_interrupt_enable(&self, interrupt_id: usize, enable: bool) {
-        let offset_register = interrupt_id.div(32).mul(4);
+        let offset_register = interrupt_id.div(32);
         let offset_bit = interrupt_id.rem(32) as u32;
         let addresses = if enable {
             self.addresses_interrupt_set_enable
@@ -206,6 +218,7 @@ impl Gic {
     #[inline]
     #[must_use]
     pub fn is_interrupt_enabled(&self, interrupt_id: usize) -> bool {
+        // TODO: maybe remove mul4
         let offset_register = interrupt_id.div(32).mul(4);
         let offset_bit = interrupt_id.rem(32) as u32;
         let address = self.addresses_interrupt_set_enable[offset_register] as *mut u32;
@@ -215,6 +228,7 @@ impl Gic {
     /// Enable or disable interrupt's pending status.
     #[inline]
     pub fn toggle_interrupt_pending(&self, interrupt_id: usize, enable: bool) {
+        // TODO: maybe remove mul4
         let offset_register = interrupt_id.div(32).mul(4);
         let offset_bit = interrupt_id.rem(32) as u32;
         let addresses = if enable {
@@ -230,6 +244,7 @@ impl Gic {
     #[inline]
     #[must_use]
     pub fn is_interrupt_pending(&self, interrupt_id: usize) -> bool {
+        // TODO: maybe remove mul4
         let offset_register = interrupt_id.div(32).mul(4);
         let offset_bit = interrupt_id.rem(32) as u32;
         let address = self.addresses_interrupt_set_pending[offset_register] as *mut u32;
@@ -248,7 +263,7 @@ impl Gic {
 
     #[inline]
     pub fn set_interrupt_priority(&self, interrupt_id: usize, priority: u8) {
-        let offset_register = interrupt_id.div(4).mul(4);
+        let offset_register = interrupt_id.div(4);
         let offset_bits = interrupt_id.rem(4).mul(8) as u32;
         let address = self.addresses_interrupt_priority[offset_register] as *mut u32;
         let indices = offset_bits..=offset_bits + 8;
@@ -258,16 +273,17 @@ impl Gic {
     #[inline]
     #[must_use]
     pub fn read_interrupt_priority(&self, interrupt_id: usize) -> u8 {
-        let offset_register = interrupt_id.div(4).mul(4);
+        let offset_register = interrupt_id.div(4);
         let offset_bits = interrupt_id.rem(4).mul(8) as u32;
         let address = self.addresses_interrupt_priority[offset_register] as *mut u32;
         let indices = offset_bits..=offset_bits + 8;
         read_address_bits(address, indices) as u8
     }
 
+    // TODO: enumeration for targets
     #[inline]
     pub fn set_interrupt_targets(&self, interrupt_id: usize, targets: u8) {
-        let offset_register = interrupt_id.div(4).mul(4);
+        let offset_register = interrupt_id.div(4);
         let offset_bits = interrupt_id.rem(4).mul(8) as u32;
         let address = self.addresses_interrupt_processor_targets[offset_register] as *mut u32;
         let indices = offset_bits..=offset_bits + 8;
@@ -276,7 +292,7 @@ impl Gic {
 
     #[inline]
     pub fn read_interrupt_targets(&self, interrupt_id: usize) -> u8 {
-        let offset_register = interrupt_id.div(4).mul(4);
+        let offset_register = interrupt_id.div(4);
         let offset_bits = interrupt_id.rem(4).mul(8) as u32;
         let address = self.addresses_interrupt_processor_targets[offset_register] as *mut u32;
         let indices = offset_bits..=offset_bits + 8;
@@ -290,6 +306,7 @@ impl Gic {
         sensitivity: InterruptSensitivity,
     ) {
         // TODO: disable corresponding interrupt before altering
+        // TODO: maybe remove mul4
         let offset_register = interrupt_id.div(16).mul(4);
         let offset_bit = interrupt_id.rem(16).mul(2) + 1;
         let action = if sensitivity.as_bool() {
