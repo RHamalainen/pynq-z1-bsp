@@ -25,10 +25,15 @@ pub mod sgi {
 
 /// Private peripheral interrupts.
 pub mod ppi {
+    /// Global timer interrupt.
     pub const IRQ_GLOBAL_TIMER: u32 = 27;
+    /// Legacy nFIQ interrupt which bypasses interrupt distributor.
     pub const IRQ_N_FIQ: u32 = 28;
+    /// Private timer interrupt.
     pub const IRQ_CPU_PRIVATE_TIMER: u32 = 29;
+    /// Watchdog timer interrupt.
     pub const IRQ_AWDT: u32 = 30;
+    /// Legacy nIRQ interrupt which bypasses interrupt distributor.
     pub const IRQ_N_IRQ: u32 = 31;
 }
 
