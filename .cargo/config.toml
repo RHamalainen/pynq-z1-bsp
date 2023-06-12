@@ -8,4 +8,6 @@ rustflags = [
     "link-arg=-nostartfiles",
     "-C",
     "link-arg=-Tlinker_script.ld",
+    "-C",
+    "link-arg=-Wstack-usage=2000",
 ]
