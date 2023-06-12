@@ -3,9 +3,9 @@
 //! # How to use?
 //!
 //! ```ignore
-//! Uart0::configure();
-//! Uart0::enable();
-//! Uart0::println("Hello, World!");
+//! UART0::configure();
+//! UART0::enable();
+//! UART0::println("Hello, World!");
 //! ```
 //!
 //! # TODO
@@ -581,6 +581,13 @@ impl Uart {
     }
 
     /// Configure UART with default configuration.
+    ///
+    /// 1. Disable receiving and transmitting.
+    /// 2. Reset receiver and transmitter.
+    /// 3. Use input clock without prescaling.
+    /// 4. Disable parity bits.
+    /// 5. Use one stop bit.
+    /// 6. Use standard UART channel mode.
     #[inline]
     pub fn configure(&self) {
         self.toggle(false);
@@ -730,3 +737,41 @@ pub static mut UART1: Uart = Uart {
     address_flow_control_delay: (ADDRESS_UART1_BASE + 0x38) as *mut u32,
     address_transmitter_fifo_trigger_level: (ADDRESS_UART1_BASE + 0x44) as *mut u32,
 };
+
+impl core::fmt::Write for Uart {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        unsafe { UART0.println(s) }
+        Ok(())
+    }
+}
+
+/// Print text using `UART0`.
+#[macro_export]
+macro_rules! sprint {
+    ($s:expr) => {
+        #[allow(unused_imports)]
+        use core::fmt::*;
+        unsafe {
+            write!(UART0, $s).unwrap();
+        }
+    };
+    ($($tt:tt)*) => {
+        #[allow(unused_imports)]
+        use core::fmt::*;
+        unsafe {
+            write!(UART0, $($tt)*).unwrap();
+        }
+    };
+}
+
+/// Print line using `UART0`.
+#[macro_export]
+macro_rules! sprintln {
+    () => {
+        sprint!("\r\n");
+    };
+    ($($tt:tt)*) => {
+        sprint!($($tt)*);
+        sprint!("\r\n");
+    };
+}
