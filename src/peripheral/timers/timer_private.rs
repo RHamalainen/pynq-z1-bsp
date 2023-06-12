@@ -9,6 +9,12 @@ use crate::common::memman::write_to_address;
 /// Application processing unit's base address.
 const ADDRESS_BASE: u32 = 0xF8F0_0000;
 
+/// PYNQ-Z1 provides 50 MHz clock to Zynq's PS_CLK input.
+/// This enables the processor to operate at maximum frequency of 650 MHz.
+/// Private timer is clocked at half of the CPU's frequency, in this case 325 MHz.
+/// Thus decrements per µsecond := 325 MHz / 1_000_000 = 325;
+const DECREMENTS_PER_USECOND: u32 = 325;
+
 /// Private timer mode.
 #[derive(Clone, Copy)]
 pub enum TimerMode {
@@ -119,6 +125,47 @@ impl TimerPrivate {
     #[inline]
     pub fn clear_interrupt(&self) {
         set_address_bit(self.address_interrupt_status, 0);
+    }
+
+    pub fn usleep(&self, useconds: u32) {
+        // TODO: give error if timer is not enabled...
+
+        let load = self.get_load();
+        let mut decrements_now = 0;
+        let decrements_end = useconds * DECREMENTS_PER_USECOND;
+        //let decrements_end = 1_000_000_000;
+
+        let mut count_upper = self.get_count();
+        let mut count_lower = count_upper;
+
+        // Loop until enough decrements have been counted.
+        while decrements_now <= decrements_end {
+            // Count upper should be greater than count lower.
+            let difference = if count_lower < count_upper {
+                // Counter has progressed.
+                let difference = count_upper - count_lower;
+                // Swap upper and lower values.
+                //let temp = count_upper;
+                //count_upper = count_lower;
+                //count_lower = temp;
+                core::mem::swap(&mut count_upper, &mut count_lower);
+                difference
+            } else if count_lower == count_upper {
+                // Counter has not progressed.
+                0
+            } else {
+                // Counter has reached zero and loaded new value.
+                let difference = count_upper + (load - count_lower);
+                // Swap upper and lower values.
+                //let temp = count_upper;
+                //count_upper = count_lower;
+                //count_lower = temp;
+                core::mem::swap(&mut count_upper, &mut count_lower);
+                difference
+            };
+            decrements_now += difference;
+            count_lower = self.get_count();
+        }
     }
 }
 
