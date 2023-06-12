@@ -1,21 +1,26 @@
+[private]
 default:
-    just --list --unsorted
+    @just --list --unsorted
 
-build:
+build-library:
     cargo build --release
 
-hello:
-    cargo build --release --example hello
+build-example example:
+    cargo build --release --example {{example}}
+    arm-none-eabi-objdump target/armv7a-none-eabi/release/examples/{{example}} -S > temporary/disassembly/{{example}}.S
+    arm-none-eabi-readelf target/armv7a-none-eabi/release/examples/{{example}} -h
 
-hello-asm:
-    just hello
-    arm-none-eabi-objdump target/armv7a-none-eabi/release/examples/hello -S
-    arm-none-eabi-readelf target/armv7a-none-eabi/release/examples/hello -h
+debug example: (build-example example)
+    arm-none-eabi-gdb -x scripts/run.gdb target/armv7a-none-eabi/release/examples/{{example}}
 
-gpio:
-    cargo build --release --example gpio
+run-on-board:
+    xsct -interactive scripts/run_on_board.tcl
 
-gpio-asm:
-    just gpio
-    arm-none-eabi-objdump target/armv7a-none-eabi/release/examples/gpio -S
-    arm-none-eabi-readelf target/armv7a-none-eabi/release/examples/gpio -h
+build-all-examples:
+    just build-example hello
+    just build-example gpio
+    just build-example leds
+    just build-example timer
+
+doc:
+    cargo doc --release --open
