@@ -1,4 +1,23 @@
 //! Global 64-bit timer.
+//!
+//! # How to use?
+//!
+//! ```ignore
+//! TIMER_GLOBAL.toggle(false);
+//! TIMER_GLOBAL.clear_interrupt();
+//! TIMER_GLOBAL.set_mode(TimerModeGlobal::AutoReload);
+//! TIMER_GLOBAL.set_prescaler(0);
+//! TIMER_GLOBAL.set_count(CounterValue { upper: 0, lower: 0 });
+//! TIMER_GLOBAL.toggle_interrupt(false);
+//! TIMER_GLOBAL.toggle_comparator(false);
+//! COMPARATOR.set_comparator_value(CounterValue {
+//!     upper: 0,
+//!     lower: 10_000_000,
+//! });
+//! COMPARATOR.set_auto_increment_value(10_000_000);
+//! TIMER_GLOBAL.toggle_comparator(true);
+//! TIMER_GLOBAL.toggle(true);
+//! ```
 
 use crate::common::memman::clear_address_bit;
 use crate::common::memman::read_from_address;
@@ -9,13 +28,19 @@ use crate::common::memman::write_to_address;
 /// Application processing unit's base address.
 const ADDRESS_BASE: u32 = 0xF8F0_0000;
 
-/// Private timer mode.
+/// PYNQ-Z1 provides 50 MHz clock to Zynq's PS_CLK input.
+/// This enables the processor to operate at maximum frequency of 650 MHz.
+/// Global timer is clocked at half of the CPU's frequency, in this case 325 MHz.
+/// Thus increments per µsecond := 325 MHz / 1_000_000 = 325.
+const INCREMENTS_PER_USECOND: u32 = 325;
+
+/// Global timer mode.
 #[derive(Clone, Copy)]
 pub enum TimerMode {
-    /// If counter reaches zero, event flag is set.
+    /// If counter reaches comparator value, event flag is set.
     SingleShot,
 
-    /// If counter reaches zero, event flag is set and load value is copied to counter.
+    /// If counter reaches comparator value, comparator is auto-incremented.
     AutoReload,
 }
 
@@ -32,14 +57,74 @@ impl TimerMode {
 }
 
 /// 64-bit counter's value.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq)]
 pub struct CounterValue {
     /// Lower 32 bits of counter's value.
-    upper: u32,
+    pub upper: u32,
 
     /// Upper 32 bits of counter's value.
-    lower: u32,
+    pub lower: u32,
 }
+
+impl core::ops::Add for CounterValue {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        let mut upper: u32 = 0;
+        let lower = match self.lower.checked_add(other.lower) {
+            Some(lower) => lower,
+            None => {
+                upper += 1;
+                let steps_to_maximum = u32::MAX - self.lower;
+                other.lower - steps_to_maximum
+            }
+        };
+        // Upper 32 bits can overflow freely.
+        upper = upper + self.upper + other.upper;
+        Self { upper, lower }
+    }
+}
+
+impl Ord for CounterValue {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        use core::cmp::Ordering;
+
+        if self.upper < other.upper {
+            Ordering::Less
+        } else if self.upper == other.upper {
+            if self.lower < other.lower {
+                Ordering::Less
+            } else if self.lower == other.lower {
+                Ordering::Equal
+            } else {
+                Ordering::Greater
+            }
+        } else {
+            Ordering::Greater
+        }
+    }
+}
+
+impl PartialOrd for CounterValue {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for CounterValue {
+    fn eq(&self, other: &Self) -> bool {
+        let uppers_equal = self.upper == other.upper;
+        let lowers_equal = self.lower == other.lower;
+        uppers_equal && lowers_equal
+    }
+}
+
+/*
+impl PartialOrd for CounterValue {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+*/
 
 /// Interface to global timer.
 pub struct TimerGlobal {
@@ -142,6 +227,21 @@ impl TimerGlobal {
     pub fn clear_interrupt(&self) {
         set_address_bit(self.address_interrupt_status, 0);
     }
+
+    pub fn usleep(&self, useconds: u32) {
+        // TODO: give error if timer is not enabled... otherwise we are stuck here
+
+        let mut count_now = self.get_count();
+        let count_end = count_now
+            + CounterValue {
+                // TODO: this is not optimal...
+                lower: useconds * INCREMENTS_PER_USECOND,
+                upper: 0,
+            };
+        while count_now < count_end {
+            count_now = self.get_count();
+        }
+    }
 }
 
 /// Global timer.
@@ -150,4 +250,37 @@ pub static mut TIMER_GLOBAL: TimerGlobal = TimerGlobal {
     address_counter_1: (ADDRESS_BASE + 0x204) as *mut u32,
     address_control: (ADDRESS_BASE + 0x208) as *mut u32,
     address_interrupt_status: (ADDRESS_BASE + 0x20C) as *mut u32,
+};
+
+pub struct Comparator {
+    address_comparator_lower: *mut u32,
+    address_comparator_upper: *mut u32,
+    address_auto_increment: *mut u32,
+}
+
+impl Comparator {
+    pub fn get_comparator_value(&self) -> CounterValue {
+        let lower = read_from_address(self.address_comparator_lower);
+        let upper = read_from_address(self.address_comparator_upper);
+        CounterValue { lower, upper }
+    }
+
+    pub fn set_comparator_value(&self, value: CounterValue) {
+        write_to_address(self.address_comparator_lower, value.lower);
+        write_to_address(self.address_comparator_upper, value.upper);
+    }
+
+    pub fn get_auto_increment_value(&self) -> u32 {
+        read_from_address(self.address_auto_increment)
+    }
+
+    pub fn set_auto_increment_value(&self, value: u32) {
+        write_to_address(self.address_auto_increment, value);
+    }
+}
+
+pub static mut COMPARATOR: Comparator = Comparator {
+    address_comparator_lower: (ADDRESS_BASE + 0x210) as *mut u32,
+    address_comparator_upper: (ADDRESS_BASE + 0x214) as *mut u32,
+    address_auto_increment: (ADDRESS_BASE + 0x218) as *mut u32,
 };
