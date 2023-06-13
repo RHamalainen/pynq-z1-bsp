@@ -740,7 +740,7 @@ pub static mut UART1: Uart = Uart {
 
 impl core::fmt::Write for Uart {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        unsafe { UART0.println(s) }
+        unsafe { UART0.print(s) }
         Ok(())
     }
 }
