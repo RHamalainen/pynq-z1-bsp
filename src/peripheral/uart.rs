@@ -683,14 +683,21 @@ impl Uart {
     #[inline]
     pub fn clear_interrupt_cause(&self, cause: InterruptCause) {
         let index = cause.bit_index();
-        set_address_bit(self.address_interrupt_mask, index);
+        set_address_bit(self.address_channel_interrupt_status, index);
     }
 
     /// Clear all UART interrupt causes.
     #[inline]
     pub fn clear_all_interrupt_causes(&self) {
-        write_to_address(self.address_interrupt_mask, 0xFFFF_FFFF);
+        write_to_address(self.address_channel_interrupt_status, 0xFFFF_FFFF);
     }
+
+    /*pub fn set_baud_rate(&self) {
+        self.toggle(false);
+
+
+        self.reset();
+    }*/
 }
 
 /// UART 0 base address.
