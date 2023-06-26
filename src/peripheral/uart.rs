@@ -759,14 +759,14 @@ macro_rules! sprint {
         #[allow(unused_imports)]
         use core::fmt::*;
         unsafe {
-            write!(UART0, $s).unwrap();
+            write!($crate::peripheral::uart::UART0, $s).unwrap();
         }
     };
     ($($tt:tt)*) => {
         #[allow(unused_imports)]
         use core::fmt::*;
         unsafe {
-            write!(UART0, $($tt)*).unwrap();
+            write!($crate::peripheral::uart::UART0, $($tt)*).unwrap();
         }
     };
 }
@@ -775,10 +775,10 @@ macro_rules! sprint {
 #[macro_export]
 macro_rules! sprintln {
     () => {
-        sprint!("\r\n");
+        $crate::sprint!("\r\n");
     };
     ($($tt:tt)*) => {
-        sprint!($($tt)*);
-        sprint!("\r\n");
+        $crate::sprint!($($tt)*);
+        $crate::sprint!("\r\n");
     };
 }
