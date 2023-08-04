@@ -6,14 +6,22 @@
 //! - Bank 2 controls 32 EMIO pins.
 //! - Bank 3 controls 32 EMIO pins.
 
+// TODO: no runtime panics, use results
+// TODO: separate mio and emio to substructs
+
 use crate::common::memman::clear_address_bit;
 use crate::common::memman::read_address_bit;
 use crate::common::memman::set_address_bit;
 use core::ops::RangeInclusive;
 use core::ops::Rem;
 
-/// Base address for memory mapped GPIO.
-pub const ADDRESS_GPIO_BASE: u32 = 0xE000_A000;
+pub enum MioPin {
+    // TODO
+}
+
+pub enum EmioPin {
+    // TODO
+}
 
 /// GPIO pin direction.
 #[derive(Clone, Copy)]
@@ -403,6 +411,8 @@ impl Gpio {
     }
 }
 
+/// Base address for memory mapped GPIO.
+const ADDRESS_GPIO_BASE: u32 = 0xE000_A000;
 /// GPIO bank 0 base address.
 const ADDRESS_BANK0_BASE: u32 = ADDRESS_GPIO_BASE + 0x204;
 /// GPIO bank 1 base address.
