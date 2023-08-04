@@ -1,76 +1,300 @@
-//! IRQ handler.
+//! Interrupt request handler.
 
-use crate::common::bitman::ReadBitwiseRange;
+use crate::interrupt::icc::InterruptAcknowledge;
 
-/// Base address of ICC.
-pub const ADDRESS_ICC_BASE: u32 = 0xF8F0_0100;
-/// Interrupt acknowledge register.
-pub const ADDRESS_ICC_IAR: *mut u32 = (ADDRESS_ICC_BASE + 0x0C) as *mut u32;
-/// End of interrupt register.
-pub const ADDRESS_ICC_EOIR: *mut u32 = (ADDRESS_ICC_BASE + 0x10) as *mut u32;
-
+/// Interrupt request handler.
 pub struct IrqHandler {
+    // Software generated interrupts.
+    pub handle_sgi_0: fn(),
+    pub handle_sgi_1: fn(),
+    pub handle_sgi_2: fn(),
+    pub handle_sgi_3: fn(),
+    pub handle_sgi_4: fn(),
+    pub handle_sgi_5: fn(),
+    pub handle_sgi_6: fn(),
+    pub handle_sgi_7: fn(),
+    pub handle_sgi_8: fn(),
+    pub handle_sgi_9: fn(),
+    pub handle_sgi_10: fn(),
+    pub handle_sgi_11: fn(),
+    pub handle_sgi_12: fn(),
+    pub handle_sgi_13: fn(),
+    pub handle_sgi_14: fn(),
+    pub handle_sgi_15: fn(),
+
+    // Private peripheral interrupts.
     pub handle_global_timer: fn(),
     pub handle_nfiq: fn(),
     pub handle_private_timer: fn(),
     pub handle_watchdog_timer: fn(),
     pub handle_nirq: fn(),
 
+    // Shared peripheral interrupts.
+    pub handle_cpu0: fn(),
+    pub handle_cpu1: fn(),
+    pub handle_l2cache: fn(),
+    pub handle_ocm: fn(),
+    pub handle_pmu0: fn(),
+    pub handle_pmu1: fn(),
+    pub handle_xadc: fn(),
+    pub handle_devc: fn(),
+    pub handle_swdt: fn(),
     pub handle_ttc0_0: fn(),
-
+    pub handle_ttc0_1: fn(),
+    pub handle_ttc0_2: fn(),
+    pub handle_dmac_abort: fn(),
+    pub handle_dmac0: fn(),
+    pub handle_dmac1: fn(),
+    pub handle_dmac2: fn(),
+    pub handle_dmac3: fn(),
+    pub handle_smc: fn(),
+    pub handle_quadspi: fn(),
     pub handle_gpio: fn(),
-
+    pub handle_usb0: fn(),
+    pub handle_ethernet0: fn(),
+    pub handle_ethernet0_wakeup: fn(),
+    pub handle_sdio0: fn(),
+    pub handle_i2c0: fn(),
+    pub handle_spi0: fn(),
     pub handle_uart0: fn(),
+    pub handle_can0: fn(),
+    pub handle_pl0: fn(),
+    pub handle_pl1: fn(),
+    pub handle_pl2: fn(),
+    pub handle_pl3: fn(),
+    pub handle_pl4: fn(),
+    pub handle_pl5: fn(),
+    pub handle_pl6: fn(),
+    pub handle_pl7: fn(),
+    pub handle_ttc1_0: fn(),
+    pub handle_ttc1_1: fn(),
+    pub handle_ttc1_2: fn(),
+    pub handle_dmac4: fn(),
+    pub handle_dmac5: fn(),
+    pub handle_dmac6: fn(),
+    pub handle_dmac7: fn(),
+    pub handle_usb1: fn(),
+    pub handle_ethernet1: fn(),
+    pub handle_ethernet1_wakeup: fn(),
+    pub handle_sdio1: fn(),
+    pub handle_i2c1: fn(),
+    pub handle_spi1: fn(),
     pub handle_uart1: fn(),
+    pub handle_can1: fn(),
+    pub handle_pl8: fn(),
+    pub handle_pl9: fn(),
+    pub handle_pl10: fn(),
+    pub handle_pl11: fn(),
+    pub handle_pl12: fn(),
+    pub handle_pl13: fn(),
+    pub handle_pl14: fn(),
+    pub handle_pl15: fn(),
+    pub handle_parity: fn(),
 }
 
-pub static mut IRQ_HANDLER: IrqHandler = unsafe {
-    IrqHandler {
-        handle_global_timer: || {},
-        handle_nfiq: || {},
-        handle_private_timer: || {},
-        handle_watchdog_timer: || {},
-        handle_nirq: || {},
+impl IrqHandler {
+    // TODO: set_handler(&self, irq: Irq, handler: fn()) {}
 
-        handle_ttc0_0: || {},
+    #[no_mangle]
+    #[inline(never)]
+    pub fn get_handler(&self, iar: InterruptAcknowledge) -> fn() {
+        use crate::interrupt::irq_numbers::PpiIrq;
+        use crate::interrupt::irq_numbers::SgiIrq;
+        use crate::interrupt::irq_numbers::SpiIrq;
 
-        handle_gpio: || {},
-
-        handle_uart0: || {},
-        handle_uart1: || {},
+        match iar {
+            // TODO: maybe SGI handlers could use cpu_id?
+            InterruptAcknowledge::Sgi { sgi, cpu_id: _ } => match sgi {
+                SgiIrq::Sgi0 => self.handle_sgi_0,
+                SgiIrq::Sgi1 => self.handle_sgi_1,
+                SgiIrq::Sgi2 => self.handle_sgi_2,
+                SgiIrq::Sgi3 => self.handle_sgi_3,
+                SgiIrq::Sgi4 => self.handle_sgi_4,
+                SgiIrq::Sgi5 => self.handle_sgi_5,
+                SgiIrq::Sgi6 => self.handle_sgi_6,
+                SgiIrq::Sgi7 => self.handle_sgi_7,
+                SgiIrq::Sgi8 => self.handle_sgi_8,
+                SgiIrq::Sgi9 => self.handle_sgi_9,
+                SgiIrq::Sgi10 => self.handle_sgi_10,
+                SgiIrq::Sgi11 => self.handle_sgi_11,
+                SgiIrq::Sgi12 => self.handle_sgi_12,
+                SgiIrq::Sgi13 => self.handle_sgi_13,
+                SgiIrq::Sgi14 => self.handle_sgi_14,
+                SgiIrq::Sgi15 => self.handle_sgi_15,
+            },
+            InterruptAcknowledge::Ppi { ppi } => match ppi {
+                PpiIrq::GlobalTimer => self.handle_global_timer,
+                PpiIrq::NFiq => self.handle_nfiq,
+                PpiIrq::CpuPrivateTimer => self.handle_private_timer,
+                PpiIrq::Awdt => self.handle_watchdog_timer,
+                PpiIrq::NIrq => self.handle_nirq,
+            },
+            InterruptAcknowledge::Spi { spi } => match spi {
+                SpiIrq::Cpu0 => self.handle_cpu0,
+                SpiIrq::Cpu1 => self.handle_cpu1,
+                SpiIrq::L2Cache => self.handle_l2cache,
+                SpiIrq::Ocm => self.handle_ocm,
+                SpiIrq::Pmu0 => self.handle_pmu0,
+                SpiIrq::Pmu1 => self.handle_pmu1,
+                SpiIrq::Xadc => self.handle_xadc,
+                SpiIrq::DevC => self.handle_devc,
+                SpiIrq::Swdt => self.handle_swdt,
+                SpiIrq::Ttc00 => self.handle_ttc0_0,
+                SpiIrq::Ttc01 => self.handle_ttc0_1,
+                SpiIrq::Ttc02 => self.handle_ttc0_2,
+                SpiIrq::DmacAbort => self.handle_dmac_abort,
+                SpiIrq::Dmac0 => self.handle_dmac0,
+                SpiIrq::Dmac1 => self.handle_dmac1,
+                SpiIrq::Dmac2 => self.handle_dmac2,
+                SpiIrq::Dmac3 => self.handle_dmac3,
+                SpiIrq::Smc => self.handle_smc,
+                SpiIrq::QuadSpi => self.handle_quadspi,
+                SpiIrq::Gpio => self.handle_gpio,
+                SpiIrq::Usb0 => self.handle_usb0,
+                SpiIrq::Ethernet0 => self.handle_ethernet0,
+                SpiIrq::Ethernet0Wakeup => self.handle_ethernet0_wakeup,
+                SpiIrq::Sdio0 => self.handle_sdio0,
+                SpiIrq::I2c0 => self.handle_i2c0,
+                SpiIrq::Spi0 => self.handle_spi0,
+                SpiIrq::Uart0 => self.handle_uart0,
+                SpiIrq::Can0 => self.handle_can0,
+                SpiIrq::Pl0 => self.handle_pl0,
+                SpiIrq::Pl1 => self.handle_pl1,
+                SpiIrq::Pl2 => self.handle_pl2,
+                SpiIrq::Pl3 => self.handle_pl3,
+                SpiIrq::Pl4 => self.handle_pl4,
+                SpiIrq::Pl5 => self.handle_pl5,
+                SpiIrq::Pl6 => self.handle_pl6,
+                SpiIrq::Pl7 => self.handle_pl7,
+                SpiIrq::Ttc10 => self.handle_ttc1_0,
+                SpiIrq::Ttc11 => self.handle_ttc1_1,
+                SpiIrq::Ttc12 => self.handle_ttc1_2,
+                SpiIrq::Dmac4 => self.handle_dmac4,
+                SpiIrq::Dmac5 => self.handle_dmac5,
+                SpiIrq::Dmac6 => self.handle_dmac6,
+                SpiIrq::Dmac7 => self.handle_dmac7,
+                SpiIrq::Usb1 => self.handle_usb1,
+                SpiIrq::Ethernet1 => self.handle_ethernet1,
+                SpiIrq::Ethernet1Wakeup => self.handle_ethernet1_wakeup,
+                SpiIrq::Sdio1 => self.handle_sdio1,
+                SpiIrq::I2c1 => self.handle_i2c1,
+                SpiIrq::Spi1 => self.handle_spi1,
+                SpiIrq::Uart1 => self.handle_uart1,
+                SpiIrq::Can1 => self.handle_can1,
+                SpiIrq::Pl8 => self.handle_pl8,
+                SpiIrq::Pl9 => self.handle_pl9,
+                SpiIrq::Pl10 => self.handle_pl10,
+                SpiIrq::Pl11 => self.handle_pl11,
+                SpiIrq::Pl12 => self.handle_pl12,
+                SpiIrq::Pl13 => self.handle_pl13,
+                SpiIrq::Pl14 => self.handle_pl14,
+                SpiIrq::Pl15 => self.handle_pl15,
+                SpiIrq::Parity => self.handle_parity,
+            },
+        }
     }
+}
+
+/// Interrupt request handler.
+pub static mut IRQ_HANDLER: IrqHandler = IrqHandler {
+    // Software generated interrupts.
+    handle_sgi_0: || {},
+    handle_sgi_1: || {},
+    handle_sgi_2: || {},
+    handle_sgi_3: || {},
+    handle_sgi_4: || {},
+    handle_sgi_5: || {},
+    handle_sgi_6: || {},
+    handle_sgi_7: || {},
+    handle_sgi_8: || {},
+    handle_sgi_9: || {},
+    handle_sgi_10: || {},
+    handle_sgi_11: || {},
+    handle_sgi_12: || {},
+    handle_sgi_13: || {},
+    handle_sgi_14: || {},
+    handle_sgi_15: || {},
+
+    // Private peripheral interrupts.
+    handle_global_timer: || {},
+    handle_nfiq: || {},
+    handle_private_timer: || {},
+    handle_watchdog_timer: || {},
+    handle_nirq: || {},
+
+    // Shared peripheral interrupts.
+    handle_cpu0: || {},
+    handle_cpu1: || {},
+    handle_l2cache: || {},
+    handle_ocm: || {},
+    handle_pmu0: || {},
+    handle_pmu1: || {},
+    handle_xadc: || {},
+    handle_devc: || {},
+    handle_swdt: || {},
+    handle_ttc0_0: || {},
+    handle_ttc0_1: || {},
+    handle_ttc0_2: || {},
+    handle_dmac_abort: || {},
+    handle_dmac0: || {},
+    handle_dmac1: || {},
+    handle_dmac2: || {},
+    handle_dmac3: || {},
+    handle_smc: || {},
+    handle_quadspi: || {},
+    handle_gpio: || {},
+    handle_usb0: || {},
+    handle_ethernet0: || {},
+    handle_ethernet0_wakeup: || {},
+    handle_sdio0: || {},
+    handle_i2c0: || {},
+    handle_spi0: || {},
+    handle_uart0: || {},
+    handle_can0: || {},
+    handle_pl0: || {},
+    handle_pl1: || {},
+    handle_pl2: || {},
+    handle_pl3: || {},
+    handle_pl4: || {},
+    handle_pl5: || {},
+    handle_pl6: || {},
+    handle_pl7: || {},
+    handle_ttc1_0: || {},
+    handle_ttc1_1: || {},
+    handle_ttc1_2: || {},
+    handle_dmac4: || {},
+    handle_dmac5: || {},
+    handle_dmac6: || {},
+    handle_dmac7: || {},
+    handle_usb1: || {},
+    handle_ethernet1: || {},
+    handle_ethernet1_wakeup: || {},
+    handle_sdio1: || {},
+    handle_i2c1: || {},
+    handle_spi1: || {},
+    handle_uart1: || {},
+    handle_can1: || {},
+    handle_pl8: || {},
+    handle_pl9: || {},
+    handle_pl10: || {},
+    handle_pl11: || {},
+    handle_pl12: || {},
+    handle_pl13: || {},
+    handle_pl14: || {},
+    handle_pl15: || {},
+    handle_parity: || {},
 };
 
-/// Handle IRQ interrupt.
+/// Handle interrupt request.
+///
+/// This function is called from assembly interrupt handler.
 #[no_mangle]
 #[inline(never)]
 fn handle_irq() {
     use crate::interrupt::icc::ICC;
-    use crate::interrupt::irq_numbers::ppi;
-    use crate::interrupt::irq_numbers::Irq;
-    use crate::peripheral::uart::UART0;
 
-    // TODO: read into structure
     let iar = unsafe { ICC.acknowledge_interrupt() };
-
-    // TODO: read into structure
-    let interrupt_id = iar.read_bits(0..=9);
-    match Irq::from_u32(interrupt_id) {
-        Irq::IrqGlobalTimer => unsafe { (IRQ_HANDLER.handle_global_timer)() },
-        Irq::IrqNFiq => unsafe { (IRQ_HANDLER.handle_nfiq)() },
-        Irq::IrqCpuPrivateTimer => unsafe { (IRQ_HANDLER.handle_private_timer)() },
-        Irq::IrqAwdt => unsafe { (IRQ_HANDLER.handle_watchdog_timer)() },
-        Irq::IrqNIrq => unsafe { (IRQ_HANDLER.handle_nirq)() },
-
-        Irq::IrqTtc00 => unsafe { (IRQ_HANDLER.handle_ttc0_0)() },
-
-        Irq::IrqGpio => unsafe { (IRQ_HANDLER.handle_gpio)() },
-
-        Irq::IrqUart0 => unsafe { (IRQ_HANDLER.handle_uart0)() },
-        Irq::IrqUart1 => unsafe { (IRQ_HANDLER.handle_uart1)() },
-        _ => (),
-    }
-    unsafe {
-        ICC.complete_interrupt(iar);
-    }
+    let handler = unsafe { IRQ_HANDLER.get_handler(iar) };
+    (handler)();
+    unsafe { ICC.complete_interrupt(iar) };
 }
