@@ -23,7 +23,9 @@ _interrupt_irq:
     b _handle_irq
     /* 0x1C fiq */
 _interrupt_fiq:
-    b _interrupt_fiq    
+    /* TODO */
+    /* b _handle_fiq */
+    b _interrupt_fiq
 
 .section .text
 .global _handle_irq
@@ -49,6 +51,15 @@ _handle_irq:
     /* to return to current instruction, lr is corrected by moving it back one instruction */
     subs pc, lr, #4
 
+/*.section .text
+.global _handle_fiq
+_handle_fiq:*/
+    /* TODO: document */
+    /*push {r0-r12, lr}
+    bl handle_fiq
+    pop {r0-r12, lr}
+    subs pc, lr, #4*/
+
 .section .text
 .global _boot
 _boot:
@@ -58,6 +69,7 @@ _boot:
     orr r0, r0, #0b111000000
     msr cpsr, r0
     /* set system mode */
+    /* TODO: does this enable interrupts? */
     msr cpsr, #0b11111
     bl _initialize_bss
     /* TODO: initialize data */
@@ -97,6 +109,7 @@ _initialize_stack:
     msr cpsr, #0b11111
     bx lr
 
+/* TODO: is this needed? */
 .section .text
 .global _abort
 _abort:
