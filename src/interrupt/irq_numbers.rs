@@ -1,8 +1,5 @@
 //! Interrupt request numbers.
 
-#![allow(unused)]
-#![allow(clippy::missing_docs_in_private_items)]
-
 /// Software generated interrupts.
 pub mod sgi {
     pub const IRQ_SGI_0: u32 = 0;
@@ -23,18 +20,127 @@ pub mod sgi {
     pub const IRQ_SGI_15: u32 = 15;
 }
 
+/// Software generated interrupt.
+#[derive(Clone, Copy)]
+pub enum SgiIrq {
+    Sgi0,
+    Sgi1,
+    Sgi2,
+    Sgi3,
+    Sgi4,
+    Sgi5,
+    Sgi6,
+    Sgi7,
+    Sgi8,
+    Sgi9,
+    Sgi10,
+    Sgi11,
+    Sgi12,
+    Sgi13,
+    Sgi14,
+    Sgi15,
+}
+
+impl SgiIrq {
+    pub fn from_u32(value: u32) -> Result<Self, u32> {
+        let value = match value {
+            sgi::IRQ_SGI_0 => Self::Sgi0,
+            sgi::IRQ_SGI_1 => Self::Sgi1,
+            sgi::IRQ_SGI_2 => Self::Sgi2,
+            sgi::IRQ_SGI_3 => Self::Sgi3,
+            sgi::IRQ_SGI_4 => Self::Sgi4,
+            sgi::IRQ_SGI_5 => Self::Sgi5,
+            sgi::IRQ_SGI_6 => Self::Sgi6,
+            sgi::IRQ_SGI_7 => Self::Sgi7,
+            sgi::IRQ_SGI_8 => Self::Sgi8,
+            sgi::IRQ_SGI_9 => Self::Sgi9,
+            sgi::IRQ_SGI_10 => Self::Sgi10,
+            sgi::IRQ_SGI_11 => Self::Sgi11,
+            sgi::IRQ_SGI_12 => Self::Sgi12,
+            sgi::IRQ_SGI_13 => Self::Sgi13,
+            sgi::IRQ_SGI_14 => Self::Sgi14,
+            sgi::IRQ_SGI_15 => Self::Sgi15,
+            unknown => {
+                return Err(unknown);
+            }
+        };
+        Ok(value)
+    }
+
+    pub fn as_u32(self) -> u32 {
+        match self {
+            Self::Sgi0 => sgi::IRQ_SGI_0,
+            Self::Sgi1 => sgi::IRQ_SGI_1,
+            Self::Sgi2 => sgi::IRQ_SGI_2,
+            Self::Sgi3 => sgi::IRQ_SGI_3,
+            Self::Sgi4 => sgi::IRQ_SGI_4,
+            Self::Sgi5 => sgi::IRQ_SGI_5,
+            Self::Sgi6 => sgi::IRQ_SGI_6,
+            Self::Sgi7 => sgi::IRQ_SGI_7,
+            Self::Sgi8 => sgi::IRQ_SGI_8,
+            Self::Sgi9 => sgi::IRQ_SGI_9,
+            Self::Sgi10 => sgi::IRQ_SGI_10,
+            Self::Sgi11 => sgi::IRQ_SGI_11,
+            Self::Sgi12 => sgi::IRQ_SGI_12,
+            Self::Sgi13 => sgi::IRQ_SGI_13,
+            Self::Sgi14 => sgi::IRQ_SGI_14,
+            Self::Sgi15 => sgi::IRQ_SGI_15,
+        }
+    }
+}
+
 /// Private peripheral interrupts.
 pub mod ppi {
     /// Global timer interrupt.
     pub const IRQ_GLOBAL_TIMER: u32 = 27;
+
     /// Legacy nFIQ interrupt which bypasses interrupt distributor.
     pub const IRQ_N_FIQ: u32 = 28;
+
     /// Private timer interrupt.
     pub const IRQ_CPU_PRIVATE_TIMER: u32 = 29;
+
     /// Watchdog timer interrupt.
     pub const IRQ_AWDT: u32 = 30;
+
     /// Legacy nIRQ interrupt which bypasses interrupt distributor.
     pub const IRQ_N_IRQ: u32 = 31;
+}
+
+/// Private peripheral interrupt.
+#[derive(Clone, Copy)]
+pub enum PpiIrq {
+    GlobalTimer,
+    NFiq,
+    CpuPrivateTimer,
+    Awdt,
+    NIrq,
+}
+
+impl PpiIrq {
+    pub fn from_u32(value: u32) -> Result<Self, u32> {
+        let value = match value {
+            ppi::IRQ_GLOBAL_TIMER => Self::GlobalTimer,
+            ppi::IRQ_N_FIQ => Self::NFiq,
+            ppi::IRQ_CPU_PRIVATE_TIMER => Self::CpuPrivateTimer,
+            ppi::IRQ_AWDT => Self::Awdt,
+            ppi::IRQ_N_IRQ => Self::NIrq,
+            unknown => {
+                return Err(unknown);
+            }
+        };
+        Ok(value)
+    }
+
+    pub fn as_u32(self) -> u32 {
+        match self {
+            Self::GlobalTimer => ppi::IRQ_GLOBAL_TIMER,
+            Self::NFiq => ppi::IRQ_N_FIQ,
+            Self::CpuPrivateTimer => ppi::IRQ_CPU_PRIVATE_TIMER,
+            Self::Awdt => ppi::IRQ_AWDT,
+            Self::NIrq => ppi::IRQ_N_IRQ,
+        }
+    }
 }
 
 /// Shared peripheral interrupts.
@@ -101,176 +207,238 @@ pub mod spi {
     pub const IRQ_PARITY: u32 = 92;
 }
 
+/// Shared peripheral interrupt.
+#[derive(Clone, Copy)]
+pub enum SpiIrq {
+    Cpu0,
+    Cpu1,
+    L2Cache,
+    Ocm,
+    Pmu0,
+    Pmu1,
+    Xadc,
+    DevC,
+    Swdt,
+    Ttc00,
+    Ttc01,
+    Ttc02,
+    DmacAbort,
+    Dmac0,
+    Dmac1,
+    Dmac2,
+    Dmac3,
+    Smc,
+    QuadSpi,
+    Gpio,
+    Usb0,
+    Ethernet0,
+    Ethernet0Wakeup,
+    Sdio0,
+    I2c0,
+    Spi0,
+    Uart0,
+    Can0,
+    Pl0,
+    Pl1,
+    Pl2,
+    Pl3,
+    Pl4,
+    Pl5,
+    Pl6,
+    Pl7,
+    Ttc10,
+    Ttc11,
+    Ttc12,
+    Dmac4,
+    Dmac5,
+    Dmac6,
+    Dmac7,
+    Usb1,
+    Ethernet1,
+    Ethernet1Wakeup,
+    Sdio1,
+    I2c1,
+    Spi1,
+    Uart1,
+    Can1,
+    Pl8,
+    Pl9,
+    Pl10,
+    Pl11,
+    Pl12,
+    Pl13,
+    Pl14,
+    Pl15,
+    Parity,
+}
+
+impl SpiIrq {
+    pub fn from_u32(value: u32) -> Result<Self, u32> {
+        let value = match value {
+            spi::IRQ_CPU0 => Self::Cpu0,
+            spi::IRQ_CPU1 => Self::Cpu1,
+            spi::IRQ_L2_CACHE => Self::L2Cache,
+            spi::IRQ_OCM => Self::Ocm,
+            spi::IRQ_PMU0 => Self::Pmu0,
+            spi::IRQ_PMU1 => Self::Pmu1,
+            spi::IRQ_XADC => Self::Xadc,
+            spi::IRQ_DEV_C => Self::DevC,
+            spi::IRQ_SWDT => Self::Swdt,
+            spi::IRQ_TTC0_0 => Self::Ttc00,
+            spi::IRQ_TTC0_1 => Self::Ttc01,
+            spi::IRQ_TTC0_2 => Self::Ttc02,
+            spi::IRQ_DMAC_ABORT => Self::DmacAbort,
+            spi::IRQ_DMAC0 => Self::Dmac0,
+            spi::IRQ_DMAC1 => Self::Dmac1,
+            spi::IRQ_DMAC2 => Self::Dmac2,
+            spi::IRQ_DMAC3 => Self::Dmac3,
+            spi::IRQ_SMC => Self::Smc,
+            spi::IRQ_QUAD_SPI => Self::QuadSpi,
+            spi::IRQ_GPIO => Self::Gpio,
+            spi::IRQ_USB0 => Self::Usb0,
+            spi::IRQ_ETHERNET0 => Self::Ethernet0,
+            spi::IRQ_ETHERNET0_WAKEUP => Self::Ethernet0Wakeup,
+            spi::IRQ_SDIO0 => Self::Sdio0,
+            spi::IRQ_I2C0 => Self::I2c0,
+            spi::IRQ_SPI0 => Self::Spi0,
+            spi::IRQ_UART0 => Self::Uart0,
+            spi::IRQ_CAN0 => Self::Can0,
+            spi::IRQ_PL0 => Self::Pl0,
+            spi::IRQ_PL1 => Self::Pl1,
+            spi::IRQ_PL2 => Self::Pl2,
+            spi::IRQ_PL3 => Self::Pl3,
+            spi::IRQ_PL4 => Self::Pl4,
+            spi::IRQ_PL5 => Self::Pl5,
+            spi::IRQ_PL6 => Self::Pl6,
+            spi::IRQ_PL7 => Self::Pl7,
+            spi::IRQ_TTC1_0 => Self::Ttc10,
+            spi::IRQ_TTC1_1 => Self::Ttc11,
+            spi::IRQ_TTC1_2 => Self::Ttc12,
+            spi::IRQ_DMAC4 => Self::Dmac4,
+            spi::IRQ_DMAC5 => Self::Dmac5,
+            spi::IRQ_DMAC6 => Self::Dmac6,
+            spi::IRQ_DMAC7 => Self::Dmac7,
+            spi::IRQ_USB1 => Self::Usb1,
+            spi::IRQ_ETHERNET1 => Self::Ethernet1,
+            spi::IRQ_ETHERNET1_WAKEUP => Self::Ethernet1Wakeup,
+            spi::IRQ_SDIO1 => Self::Sdio1,
+            spi::IRQ_I2C1 => Self::I2c1,
+            spi::IRQ_SPI1 => Self::Spi1,
+            spi::IRQ_UART1 => Self::Uart1,
+            spi::IRQ_CAN1 => Self::Can1,
+            spi::IRQ_PL8 => Self::Pl8,
+            spi::IRQ_PL9 => Self::Pl9,
+            spi::IRQ_PL10 => Self::Pl10,
+            spi::IRQ_PL11 => Self::Pl11,
+            spi::IRQ_PL12 => Self::Pl12,
+            spi::IRQ_PL13 => Self::Pl13,
+            spi::IRQ_PL14 => Self::Pl14,
+            spi::IRQ_PL15 => Self::Pl15,
+            spi::IRQ_PARITY => Self::Parity,
+            unknown => {
+                return Err(unknown);
+            }
+        };
+        Ok(value)
+    }
+
+    pub fn as_u32(self) -> u32 {
+        match self {
+            Self::Cpu0 => spi::IRQ_CPU0,
+            Self::Cpu1 => spi::IRQ_CPU1,
+            Self::L2Cache => spi::IRQ_L2_CACHE,
+            Self::Ocm => spi::IRQ_OCM,
+            Self::Pmu0 => spi::IRQ_PMU0,
+            Self::Pmu1 => spi::IRQ_PMU1,
+            Self::Xadc => spi::IRQ_XADC,
+            Self::DevC => spi::IRQ_DEV_C,
+            Self::Swdt => spi::IRQ_SWDT,
+            Self::Ttc00 => spi::IRQ_TTC0_0,
+            Self::Ttc01 => spi::IRQ_TTC0_1,
+            Self::Ttc02 => spi::IRQ_TTC0_2,
+            Self::DmacAbort => spi::IRQ_DMAC_ABORT,
+            Self::Dmac0 => spi::IRQ_DMAC0,
+            Self::Dmac1 => spi::IRQ_DMAC1,
+            Self::Dmac2 => spi::IRQ_DMAC2,
+            Self::Dmac3 => spi::IRQ_DMAC3,
+            Self::Smc => spi::IRQ_SMC,
+            Self::QuadSpi => spi::IRQ_QUAD_SPI,
+            Self::Gpio => spi::IRQ_GPIO,
+            Self::Usb0 => spi::IRQ_USB0,
+            Self::Ethernet0 => spi::IRQ_ETHERNET0,
+            Self::Ethernet0Wakeup => spi::IRQ_ETHERNET0_WAKEUP,
+            Self::Sdio0 => spi::IRQ_SDIO0,
+            Self::I2c0 => spi::IRQ_I2C0,
+            Self::Spi0 => spi::IRQ_SPI0,
+            Self::Uart0 => spi::IRQ_UART0,
+            Self::Can0 => spi::IRQ_CAN0,
+            Self::Pl0 => spi::IRQ_PL0,
+            Self::Pl1 => spi::IRQ_PL1,
+            Self::Pl2 => spi::IRQ_PL2,
+            Self::Pl3 => spi::IRQ_PL3,
+            Self::Pl4 => spi::IRQ_PL4,
+            Self::Pl5 => spi::IRQ_PL5,
+            Self::Pl6 => spi::IRQ_PL6,
+            Self::Pl7 => spi::IRQ_PL7,
+            Self::Ttc10 => spi::IRQ_TTC1_0,
+            Self::Ttc11 => spi::IRQ_TTC1_1,
+            Self::Ttc12 => spi::IRQ_TTC1_2,
+            Self::Dmac4 => spi::IRQ_DMAC4,
+            Self::Dmac5 => spi::IRQ_DMAC5,
+            Self::Dmac6 => spi::IRQ_DMAC6,
+            Self::Dmac7 => spi::IRQ_DMAC7,
+            Self::Usb1 => spi::IRQ_USB1,
+            Self::Ethernet1 => spi::IRQ_ETHERNET1,
+            Self::Ethernet1Wakeup => spi::IRQ_ETHERNET1_WAKEUP,
+            Self::Sdio1 => spi::IRQ_SDIO1,
+            Self::I2c1 => spi::IRQ_I2C1,
+            Self::Spi1 => spi::IRQ_SPI1,
+            Self::Uart1 => spi::IRQ_UART1,
+            Self::Can1 => spi::IRQ_CAN1,
+            Self::Pl8 => spi::IRQ_PL8,
+            Self::Pl9 => spi::IRQ_PL9,
+            Self::Pl10 => spi::IRQ_PL10,
+            Self::Pl11 => spi::IRQ_PL11,
+            Self::Pl12 => spi::IRQ_PL12,
+            Self::Pl13 => spi::IRQ_PL13,
+            Self::Pl14 => spi::IRQ_PL14,
+            Self::Pl15 => spi::IRQ_PL15,
+            Self::Parity => spi::IRQ_PARITY,
+        }
+    }
+}
+
+/// Interrupt request.
 #[derive(Clone, Copy)]
 pub enum Irq {
-    IrqSgi0,
-    IrqSgi1,
-    IrqSgi2,
-    IrqSgi3,
-    IrqSgi4,
-    IrqSgi5,
-    IrqSgi6,
-    IrqSgi7,
-    IrqSgi8,
-    IrqSgi9,
-    IrqSgi10,
-    IrqSgi11,
-    IrqSgi12,
-    IrqSgi13,
-    IrqSgi14,
-    IrqSgi15,
-    IrqGlobalTimer,
-    IrqNFiq,
-    IrqCpuPrivateTimer,
-    IrqAwdt,
-    IrqNIrq,
-    IrqCpu0,
-    IrqCpu1,
-    IrqL2Cache,
-    IrqOcm,
-    IrqPmu0,
-    IrqPmu1,
-    IrqXadc,
-    IrqDevC,
-    IrqSwdt,
-    IrqTtc00,
-    IrqTtc01,
-    IrqTtc02,
-    IrqDmacAbort,
-    IrqDmac0,
-    IrqDmac1,
-    IrqDmac2,
-    IrqDmac3,
-    IrqSmc,
-    IrqQuadSpi,
-    IrqGpio,
-    IrqUsb0,
-    IrqEthernet0,
-    IrqEthernet0Wakeup,
-    IrqSdio0,
-    IrqI2c0,
-    IrqSpi0,
-    IrqUart0,
-    IrqCan0,
-    IrqPl0,
-    IrqPl1,
-    IrqPl2,
-    IrqPl3,
-    IrqPl4,
-    IrqPl5,
-    IrqPl6,
-    IrqPl7,
-    IrqTtc10,
-    IrqTtc11,
-    IrqTtc12,
-    IrqDmac4,
-    IrqDmac5,
-    IrqDmac6,
-    IrqDmac7,
-    IrqUsb1,
-    IrqEthernet1,
-    IrqEthernet1Wakeup,
-    IrqSdio1,
-    IrqI2c1,
-    IrqSpi1,
-    IrqUart1,
-    IrqCan1,
-    IrqPl8,
-    IrqPl9,
-    IrqPl10,
-    IrqPl11,
-    IrqPl12,
-    IrqPl13,
-    IrqPl14,
-    IrqPl15,
-    IrqParity,
+    /// Software generated interrupt.
+    Sgi(SgiIrq),
+
+    /// Private peripheral interrupt.
+    Ppi(PpiIrq),
+
+    /// Shared peripheral interrupt.
+    Spi(SpiIrq),
 }
 
 impl Irq {
     pub fn from_u32(value: u32) -> Self {
-        match value {
-            0 => Irq::IrqSgi0,
-            1 => Irq::IrqSgi1,
-            2 => Irq::IrqSgi2,
-            3 => Irq::IrqSgi3,
-            4 => Irq::IrqSgi4,
-            5 => Irq::IrqSgi5,
-            6 => Irq::IrqSgi6,
-            7 => Irq::IrqSgi7,
-            8 => Irq::IrqSgi8,
-            9 => Irq::IrqSgi9,
-            10 => Irq::IrqSgi10,
-            11 => Irq::IrqSgi11,
-            12 => Irq::IrqSgi12,
-            13 => Irq::IrqSgi13,
-            14 => Irq::IrqSgi14,
-            15 => Irq::IrqSgi15,
-            27 => Irq::IrqGlobalTimer,
-            28 => Irq::IrqNFiq,
-            29 => Irq::IrqCpuPrivateTimer,
-            30 => Irq::IrqAwdt,
-            31 => Irq::IrqNIrq,
-            32 => Irq::IrqCpu0,
-            33 => Irq::IrqCpu1,
-            34 => Irq::IrqL2Cache,
-            35 => Irq::IrqOcm,
-            37 => Irq::IrqPmu0,
-            38 => Irq::IrqPmu1,
-            39 => Irq::IrqXadc,
-            40 => Irq::IrqDevC,
-            41 => Irq::IrqSwdt,
-            42 => Irq::IrqTtc00,
-            43 => Irq::IrqTtc01,
-            44 => Irq::IrqTtc02,
-            45 => Irq::IrqDmacAbort,
-            46 => Irq::IrqDmac0,
-            47 => Irq::IrqDmac1,
-            48 => Irq::IrqDmac2,
-            49 => Irq::IrqDmac3,
-            50 => Irq::IrqSmc,
-            51 => Irq::IrqQuadSpi,
-            52 => Irq::IrqGpio,
-            53 => Irq::IrqUsb0,
-            54 => Irq::IrqEthernet0,
-            55 => Irq::IrqEthernet0Wakeup,
-            56 => Irq::IrqSdio0,
-            57 => Irq::IrqI2c0,
-            58 => Irq::IrqSpi0,
-            59 => Irq::IrqUart0,
-            60 => Irq::IrqCan0,
-            61 => Irq::IrqPl0,
-            62 => Irq::IrqPl1,
-            63 => Irq::IrqPl2,
-            64 => Irq::IrqPl3,
-            65 => Irq::IrqPl4,
-            66 => Irq::IrqPl5,
-            67 => Irq::IrqPl6,
-            68 => Irq::IrqPl7,
-            69 => Irq::IrqTtc10,
-            70 => Irq::IrqTtc11,
-            71 => Irq::IrqTtc12,
-            72 => Irq::IrqDmac4,
-            73 => Irq::IrqDmac5,
-            74 => Irq::IrqDmac6,
-            75 => Irq::IrqDmac7,
-            76 => Irq::IrqUsb1,
-            77 => Irq::IrqEthernet1,
-            78 => Irq::IrqEthernet1Wakeup,
-            79 => Irq::IrqSdio1,
-            80 => Irq::IrqI2c1,
-            81 => Irq::IrqSpi1,
-            82 => Irq::IrqUart1,
-            83 => Irq::IrqCan1,
-            84 => Irq::IrqPl8,
-            85 => Irq::IrqPl9,
-            86 => Irq::IrqPl10,
-            87 => Irq::IrqPl11,
-            88 => Irq::IrqPl12,
-            89 => Irq::IrqPl13,
-            90 => Irq::IrqPl14,
-            91 => Irq::IrqPl15,
-            92 => Irq::IrqParity,
-            unknown => panic!("Unknown IRQ number: {}", unknown),
+        if let Ok(sgi) = SgiIrq::from_u32(value) {
+            Self::Sgi(sgi)
+        } else if let Ok(ppi) = PpiIrq::from_u32(value) {
+            Self::Ppi(ppi)
+        } else if let Ok(spi) = SpiIrq::from_u32(value) {
+            Self::Spi(spi)
+        } else {
+            panic!("Unknown IRQ number: {value}");
+        }
+    }
+
+    pub fn as_u32(self) -> u32 {
+        match self {
+            Self::Sgi(sgi) => sgi.as_u32(),
+            Self::Ppi(ppi) => ppi.as_u32(),
+            Self::Spi(spi) => spi.as_u32(),
         }
     }
 }
