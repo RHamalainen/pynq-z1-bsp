@@ -6,6 +6,14 @@ use core::arch::asm;
 #[inline]
 pub fn nop() {
     // Safety:
-    // This instruction always exists and can not fail.
+    // Does not cause any side-effects.
     unsafe { asm!("nop") };
+}
+
+/// Return control to debugger.
+#[inline]
+pub fn breakpoint() {
+    // Safety:
+    // Does not cause any side-effects.
+    unsafe { asm!("bkpt") };
 }
