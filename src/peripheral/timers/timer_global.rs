@@ -19,14 +19,15 @@
 //! TIMER_GLOBAL.toggle(true);
 //! ```
 
+use core::ops::Not;
+
 use crate::common::memman::clear_address_bit;
+use crate::common::memman::read_address_bit;
+use crate::common::memman::read_address_bits;
 use crate::common::memman::read_from_address;
 use crate::common::memman::set_address_bit;
 use crate::common::memman::write_address_bits;
 use crate::common::memman::write_to_address;
-
-/// Application processing unit's base address.
-const ADDRESS_BASE: u32 = 0xF8F0_0000;
 
 /// PYNQ-Z1 provides 50 MHz clock to Zynq's PS_CLK input.
 /// This enables the processor to operate at maximum frequency of 650 MHz.
@@ -52,6 +53,14 @@ impl TimerMode {
         match self {
             Self::SingleShot => false,
             Self::AutoReload => true,
+        }
+    }
+
+    pub fn from_bool(value: bool) -> Self {
+        if value {
+            Self::AutoReload
+        } else {
+            Self::SingleShot
         }
     }
 }
@@ -145,10 +154,15 @@ impl TimerGlobal {
     /// Set counter's value.
     #[inline]
     pub fn set_count(&self, value: CounterValue) {
-        self.toggle_interrupt(false);
+        let interrupt_enabled = self.is_interrupt_enabled();
+        if interrupt_enabled {
+            self.toggle_interrupt(false);
+        }
         write_to_address(self.address_counter_0, value.lower);
         write_to_address(self.address_counter_1, value.upper);
-        self.toggle_interrupt(true);
+        if interrupt_enabled {
+            self.toggle_interrupt(true);
+        }
     }
 
     /// Get counter's value.
@@ -172,10 +186,16 @@ impl TimerGlobal {
         }
     }
 
-    /// Configure timer's clock prescaler.
+    /// Set timer's clock prescaler.
     #[inline]
     pub fn set_prescaler(&self, value: u8) {
         write_address_bits(self.address_control, 8..=15, value as u32);
+    }
+
+    /// Get timer's clock prescaler.
+    pub fn get_prescaler(&self) -> u8 {
+        let value = read_address_bits(self.address_control, 8..=15);
+        value as u8
     }
 
     /// Set counter mode.
@@ -189,6 +209,17 @@ impl TimerGlobal {
         action(self.address_control, 3);
     }
 
+    /// Get counter mode.
+    pub fn get_mode(&self) -> TimerMode {
+        let value = read_address_bit(self.address_control, 3);
+        TimerMode::from_bool(value)
+    }
+
+    /// True if interrupt is enabled.
+    pub fn is_interrupt_enabled(&self) -> bool {
+        read_address_bit(self.address_control, 2)
+    }
+
     /// Enable or disable timer interrupt.
     #[inline]
     pub fn toggle_interrupt(&self, enable: bool) {
@@ -198,6 +229,11 @@ impl TimerGlobal {
             clear_address_bit
         };
         action(self.address_control, 2);
+    }
+
+    /// True if comparator is enabled.
+    pub fn is_comparator_enabled(&self) -> bool {
+        read_address_bit(self.address_control, 1)
     }
 
     /// Enable or disable comparison of counter's value with comparator's value.
@@ -211,6 +247,11 @@ impl TimerGlobal {
         action(self.address_control, 1);
     }
 
+    /// True if timer is enabled.
+    pub fn is_enabled(&self) -> bool {
+        read_address_bit(self.address_control, 0)
+    }
+
     /// Enable or disable timer.
     #[inline]
     pub fn toggle(&self, enable: bool) {
@@ -222,15 +263,46 @@ impl TimerGlobal {
         action(self.address_control, 0);
     }
 
+    /// True if counter has reached comparator's value.
+    pub fn interrupt_status(&self) -> bool {
+        read_address_bit(self.address_interrupt_status, 0)
+    }
+
     /// Clear timer interrupt.
     #[inline]
     pub fn clear_interrupt(&self) {
         set_address_bit(self.address_interrupt_status, 0);
     }
 
-    pub fn usleep(&self, useconds: u32) {
-        // TODO: give error if timer is not enabled... otherwise we are stuck here
+    /// Reset peripheral.
+    pub fn reset(&self) -> Result<(), ()> {
+        write_to_address(self.address_control, 0);
+        write_to_address(self.address_counter_0, 0);
+        write_to_address(self.address_counter_1, 0);
+        write_to_address(self.address_interrupt_status, 0xFFFF_FFFF);
+        if read_from_address(self.address_control) != 0 {
+            return Err(());
+        }
+        if read_from_address(self.address_counter_0) != 0 {
+            return Err(());
+        }
+        if read_from_address(self.address_counter_1) != 0 {
+            return Err(());
+        }
+        if read_from_address(self.address_interrupt_status) != 0 {
+            return Err(());
+        }
+        Ok(())
+    }
 
+    /// Sleep given microseconds.
+    ///
+    /// This function blocks.
+    pub fn usleep(&self, useconds: u32) -> Result<(), ()> {
+        if self.is_enabled().not() {
+            return Err(());
+        }
+        // TODO: maybe also check if comparator is enabled?
         let mut count_now = self.get_count();
         let count_end = count_now
             + CounterValue {
@@ -241,16 +313,9 @@ impl TimerGlobal {
         while count_now < count_end {
             count_now = self.get_count();
         }
+        Ok(())
     }
 }
-
-/// Global timer.
-pub static mut TIMER_GLOBAL: TimerGlobal = TimerGlobal {
-    address_counter_0: (ADDRESS_BASE + 0x200) as *mut u32,
-    address_counter_1: (ADDRESS_BASE + 0x204) as *mut u32,
-    address_control: (ADDRESS_BASE + 0x208) as *mut u32,
-    address_interrupt_status: (ADDRESS_BASE + 0x20C) as *mut u32,
-};
 
 pub struct Comparator {
     address_comparator_lower: *mut u32,
@@ -278,6 +343,17 @@ impl Comparator {
         write_to_address(self.address_auto_increment, value);
     }
 }
+
+/// Application processing unit's base address.
+const ADDRESS_BASE: u32 = 0xF8F0_0000;
+
+/// Global timer.
+pub static mut TIMER_GLOBAL: TimerGlobal = TimerGlobal {
+    address_counter_0: (ADDRESS_BASE + 0x200) as *mut u32,
+    address_counter_1: (ADDRESS_BASE + 0x204) as *mut u32,
+    address_control: (ADDRESS_BASE + 0x208) as *mut u32,
+    address_interrupt_status: (ADDRESS_BASE + 0x20C) as *mut u32,
+};
 
 pub static mut COMPARATOR: Comparator = Comparator {
     address_comparator_lower: (ADDRESS_BASE + 0x210) as *mut u32,
