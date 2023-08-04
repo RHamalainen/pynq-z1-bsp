@@ -4,13 +4,15 @@
 //!
 //! ```ignore
 //! UART0::configure();
-//! UART0::enable();
-//! UART0::println("Hello, World!");
+//! UART0::toggle(true);
+//! UART0::transmit2_line("Hello, World!");
 //! ```
 //!
 //! # TODO
 //!
 //! - modem
+
+// TODO: separate to receiver and transmitter substructs
 
 use crate::common::bitman::ReadBitwise;
 use crate::common::instruction::nop;
@@ -18,8 +20,16 @@ use crate::common::memman::clear_address_bit;
 use crate::common::memman::read_address_bit;
 use crate::common::memman::read_from_address;
 use crate::common::memman::set_address_bit;
+use crate::common::memman::write_address_bits;
 use crate::common::memman::write_to_address;
 use core::ops::BitAnd;
+use core::ops::Not;
+
+#[derive(Clone, Copy)]
+pub enum DeviceIndex {
+    Uart0,
+    Uart1,
+}
 
 /// UART clock source configuration.
 #[derive(Clone, Copy)]
@@ -43,7 +53,7 @@ impl ClockSource {
     }
 }
 
-/// Character length defines how many bits are used to represent one character.
+/// How many bits are used to represent one character.
 #[derive(Clone, Copy)]
 pub enum CharacterLength {
     /// Six bits represent one character.
@@ -103,7 +113,7 @@ impl ParityType {
     }
 }
 
-/// Stop bits define how many stop bits are detected when receiving or generated when transmitting.
+/// How many stop bits are detected when receiving or generated when transmitting.
 #[derive(Clone, Copy)]
 pub enum StopBits {
     /// One stop bit.
@@ -163,68 +173,100 @@ impl ChannelMode {
     }
 }
 
-/// UART interrupt cause.
+/// UART receiver interrupt.
 #[derive(Clone, Copy)]
-pub enum InterruptCause {
+pub enum ReceiverInterrupt {
     /// Receiver FIFO level reached given trigger level.
-    ReceiverFifoTrigger,
+    FifoTrigger,
 
     /// Receiver FIFO is empty.
-    ReceiverFifoEmpty,
+    FifoEmpty,
 
     /// Receiver FIFO is full.
-    ReceiverFifoFull,
-
-    /// Transmitter FIFO is empty.
-    TransmitterFifoEmpty,
-
-    /// Transmitter FIFO is full.
-    TransmitterFifoFull,
+    FifoFull,
 
     /// Receiver FIFO was full when new byte was received.
-    ReceiverOverflow,
+    FifoOverflow,
 
     /// Receiver failed to receive valid stop bit at the end of a frame.
-    ReceiverFraming,
+    FramingError,
 
     /// Parity calculated from received bytes was not equal to received parity bit(s).
-    ReceiverParity,
+    ParityError,
 
     /// Receiver timeout counter reached zero.
-    ReceiverTimeout,
+    Timeout,
+}
+
+impl ReceiverInterrupt {
+    #[must_use]
+    pub const fn as_index(self) -> u32 {
+        match self {
+            Self::FifoTrigger => 0,
+            Self::FifoEmpty => 1,
+            Self::FifoFull => 2,
+            Self::FifoOverflow => 5,
+            Self::FramingError => 6,
+            Self::ParityError => 7,
+            Self::Timeout => 8,
+        }
+    }
+}
+
+/// UART transmitter interrupt.
+#[derive(Clone, Copy)]
+pub enum TransmitterInterrupt {
+    /// Transmitter FIFO is empty.
+    FifoEmpty,
+
+    /// Transmitter FIFO is full.
+    FifoFull,
+
+    /// Transmitter FIFO level reached given trigger level.
+    FifoTrigger,
+
+    /// Transmitter FIFO capacity has only one byte left.
+    FifoNearlyFull,
+
+    /// Transmitter FIFO was full when attempted to transmit new byte.
+    FifoOverflow,
+}
+
+impl TransmitterInterrupt {
+    #[must_use]
+    pub const fn as_index(self) -> u32 {
+        match self {
+            Self::FifoEmpty => 3,
+            Self::FifoFull => 4,
+            Self::FifoTrigger => 10,
+            Self::FifoNearlyFull => 11,
+            Self::FifoOverflow => 12,
+        }
+    }
+}
+
+/// UART interrupt.
+#[derive(Clone, Copy)]
+pub enum Interrupt {
+    /// Receiver interrupt.
+    Receiver(ReceiverInterrupt),
+
+    /// Transmitter interrupt.
+    Transmitter(TransmitterInterrupt),
 
     /// TODO: what is this?
     ModemIndicator,
-
-    /// Transmitter FIFO level reached given trigger level.
-    TransmitterFifoTrigger,
-
-    /// Transmitter FIFO capacity has only one byte left.
-    TransmitterFifoNearlyFull,
-
-    /// Transmitter FIFO was full when attempted to transmit new byte.
-    TransmitterFifoOverflow,
 }
 
-impl InterruptCause {
-    /// Interrupt cause bit index.
+impl Interrupt {
+    /// Interrupt bit index.
     #[inline]
     #[must_use]
-    pub const fn bit_index(self) -> u32 {
+    pub const fn as_index(self) -> u32 {
         match self {
-            Self::ReceiverFifoTrigger => 0,
-            Self::ReceiverFifoEmpty => 1,
-            Self::ReceiverFifoFull => 2,
-            Self::TransmitterFifoEmpty => 3,
-            Self::TransmitterFifoFull => 4,
-            Self::ReceiverOverflow => 5,
-            Self::ReceiverFraming => 6,
-            Self::ReceiverParity => 7,
-            Self::ReceiverTimeout => 8,
+            Self::Receiver(interrupt) => interrupt.as_index(),
+            Self::Transmitter(interrupt) => interrupt.as_index(),
             Self::ModemIndicator => 9,
-            Self::TransmitterFifoTrigger => 10,
-            Self::TransmitterFifoNearlyFull => 11,
-            Self::TransmitterFifoOverflow => 12,
         }
     }
 }
@@ -298,194 +340,71 @@ impl InterruptCauses {
 
 /// Interface for UART peripheral.
 pub struct Uart {
+    /// Peripheral index.
+    index: DeviceIndex,
+
     /// UART control register.
-    pub address_control: *mut u32,
+    address_control: *mut u32,
 
     /// UART mode register.
-    pub address_mode: *mut u32,
+    address_mode: *mut u32,
 
     /// Interrupt enable register.
-    pub address_interrupt_enable: *mut u32,
+    address_interrupt_enable: *mut u32,
 
     /// Interrupt disable register.
-    pub address_interrupt_disable: *mut u32,
+    address_interrupt_disable: *mut u32,
 
     /// Interrupt mask register.
-    pub address_interrupt_mask: *mut u32,
+    address_interrupt_mask: *mut u32,
 
     /// Channel interrupt status register.
-    pub address_channel_interrupt_status: *mut u32,
+    address_channel_interrupt_status: *mut u32,
 
     /// Baud rate generator register.
-    pub address_baud_rate_generator: *mut u32,
+    address_baud_rate_generator: *mut u32,
 
     /// Receiver timeout register.
-    pub address_receiver_timeout: *mut u32,
+    address_receiver_timeout: *mut u32,
 
     /// Receiver FIFO trigger level register.
-    pub address_receiver_fifo_trigger_level: *mut u32,
+    address_receiver_fifo_trigger_level: *mut u32,
 
     /// Modem control register.
-    pub address_modem_control: *mut u32,
+    address_modem_control: *mut u32,
 
     /// Modem status register.
-    pub address_modem_status: *mut u32,
+    address_modem_status: *mut u32,
 
     /// Channel status register.
-    pub address_channel_status: *mut u32,
+    address_channel_status: *mut u32,
 
     /// Transmit and receive FIFO.
-    pub address_transmit_and_receive_fifo: *mut u32,
+    address_transmit_and_receive_fifo: *mut u32,
 
     /// Baud rate divider register.
-    pub address_baud_rate_divider: *mut u32,
+    address_baud_rate_divider: *mut u32,
 
     /// Flow control delay register.
-    pub address_flow_control_delay: *mut u32,
+    address_flow_control_delay: *mut u32,
 
     /// Transmitter FIFO trigger level register.
-    pub address_transmitter_fifo_trigger_level: *mut u32,
+    address_transmitter_fifo_trigger_level: *mut u32,
 }
 
 impl Uart {
-    /// Set at what transmitter FIFO buffer value an interrupt is generated.
-    ///
-    /// # Panics
-    ///
-    /// Given value is too big.
-    #[inline]
-    pub fn set_transmitter_fifo_trigger_value(&self, value: u32) {
-        assert!(value < 2u32.pow(6));
-        for index in 0..=5 {
-            let action = if value.read_bit(index) {
-                set_address_bit
-            } else {
-                clear_address_bit
-            };
-            action(self.address_transmitter_fifo_trigger_level, index);
-        }
-    }
-
-    /// Set at what receiver FIFO buffer value an interrupt is generated.
-    ///
-    /// # Panics
-    ///
-    /// Given value is too big.
-    #[inline]
-    pub fn set_receiver_fifo_trigger_value(&self, value: u32) {
-        assert!(value < 2u32.pow(6));
-        for index in 0..=5 {
-            let action = if value.read_bit(index) {
-                set_address_bit
-            } else {
-                clear_address_bit
-            };
-            action(self.address_receiver_fifo_trigger_level, index);
-        }
-    }
-
-    /// Helper for enabling and disabling interrupts.
-    #[inline]
-    fn toggle_interrupt(&self, enable: bool, index: u32) {
-        let address = if enable {
-            self.address_interrupt_enable
-        } else {
-            self.address_interrupt_disable
-        };
-        set_address_bit(address, index);
-    }
-
-    /// Enable or disable transmitter FIFO overflow interrupt.
-    #[inline]
-    pub fn toggle_transmitter_fifo_overflow_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 12);
-    }
-
-    /// Enable or disable transmitter FIFO nearly full interrupt.
-    #[inline]
-    pub fn toggle_transmitter_fifo_nearly_full_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 11);
-    }
-
-    /// Enable or disable transmitter FIFO trigger interrupt.
-    #[inline]
-    pub fn toggle_transmitter_fifo_trigger_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 10);
-    }
-
-    /// Enable or disable transmitter FIFO full interrupt.
-    #[inline]
-    pub fn toggle_transmitter_fifo_full_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 4);
-    }
-
-    /// Enable or disable transmitter FIFO empty interrupt.
-    #[inline]
-    pub fn toggle_transmitter_fifo_empty_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 3);
-    }
-
-    /// Enable or disable receiver timeout error interrupt.
-    #[inline]
-    pub fn toggle_receiver_timeout_error_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 8);
-    }
-
-    /// Enable or disable receiver parity error interrupt.
-    #[inline]
-    pub fn toggle_receiver_parity_error_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 7);
-    }
-
-    /// Enable or disable receiver framing error interrupt.
-    #[inline]
-    pub fn toggle_receiver_framing_error_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 6);
-    }
-
-    /// Enable or disable receiver overflow error interrupt.
-    #[inline]
-    pub fn toggle_receiver_overflow_error_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 5);
-    }
-
-    /// Enable or disable receiver FIFO full interrupt.
-    #[inline]
-    pub fn toggle_receiver_fifo_full_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 2);
-    }
-
-    /// Enable or disable receiver FIFO empty interrupt.
-    #[inline]
-    pub fn toggle_receiver_fifo_empty_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 1);
-    }
-
-    /// Enable or disable receiver FIFO trigger interrupt.
-    #[inline]
-    pub fn toggle_receiver_fifo_trigger_interrupt(&self, enable: bool) {
-        self.toggle_interrupt(enable, 0);
-    }
-
     /// Receiver logic is reset and all pending receiver data is discarded.
     #[inline]
     pub fn reset_receiver(&self) {
         set_address_bit(self.address_control, 0);
-        clear_address_bit(self.address_control, 0);
+        // Bit is cleared automatically.
     }
 
     /// Transmitter logic is reset and all pending transmitter data is discarded.
     #[inline]
     pub fn reset_transmitter(&self) {
         set_address_bit(self.address_control, 1);
-        clear_address_bit(self.address_control, 1);
-    }
-
-    /// Reset both receiver and transmitter logics.
-    #[inline]
-    pub fn reset(&self) {
-        self.reset_receiver();
-        self.reset_transmitter();
+        // Bit is cleared automatically.
     }
 
     /// Enable or disable receiving.
@@ -499,6 +418,8 @@ impl Uart {
         action(self.address_control, 2);
     }
 
+    // TODO: receiver disabled register
+
     /// Enable or disable transmitting.
     #[inline]
     pub fn toggle_transmitting(&self, enable: bool) {
@@ -510,12 +431,13 @@ impl Uart {
         action(self.address_control, 4);
     }
 
-    /// Enable or disable receiver and transmitter.
-    #[inline]
-    pub fn toggle(&self, enable: bool) {
-        self.toggle_receiving(enable);
-        self.toggle_transmitting(enable);
-    }
+    // TODO: transmitter disable register
+
+    // TODO: restart receiver timeout counter
+
+    // TODO: start transmitter break
+
+    // TODO: stop transmitter break
 
     /// Set parity bit configuration.
     #[inline]
@@ -580,16 +502,225 @@ impl Uart {
         }
     }
 
+    /// True if given interrupt is enabled.
+    pub fn is_interrupt_enabled(&self, interrupt: Interrupt) -> bool {
+        let index = interrupt.as_index();
+        read_address_bit(self.address_interrupt_mask, index)
+    }
+
+    /// Helper for enabling and disabling interrupts.
+    #[inline]
+    pub fn toggle_interrupt(&self, interrupt: Interrupt, enable: bool) {
+        let address = if enable {
+            self.address_interrupt_enable
+        } else {
+            self.address_interrupt_disable
+        };
+        let index = interrupt.as_index();
+        set_address_bit(address, index);
+    }
+
+    /// Read interrupt causes.
+    ///
+    /// Also disabled interrupts are returned.
+    #[inline]
+    #[must_use]
+    pub fn read_unmaked_interrupt_causes(&self) -> InterruptCauses {
+        let unmasked = read_from_address(self.address_channel_interrupt_status);
+        InterruptCauses::new(unmasked)
+    }
+
+    /// Read interrupt causes.
+    ///
+    /// Only enabled interrupts are returned.
+    #[inline]
+    #[must_use]
+    pub fn read_interrupt_causes(&self) -> InterruptCauses {
+        let unmasked = read_from_address(self.address_channel_interrupt_status);
+        let mask = read_from_address(self.address_interrupt_mask);
+        let value = unmasked.bitand(mask);
+        InterruptCauses::new(value)
+    }
+
+    /// Clear given interrupt.
+    #[inline]
+    pub fn clear_interrupt(&self, interrupt: Interrupt) {
+        let index = interrupt.as_index();
+        set_address_bit(self.address_channel_interrupt_status, index);
+    }
+
+    // TODO: order registers
+
+    // TODO: baud rate register
+
+    // TODO: timeout
+
+    /// Set at what transmitter FIFO buffer value an interrupt is generated.
+    #[inline]
+    pub fn set_transmitter_fifo_trigger_value(&self, value: u32) -> Result<(), ()> {
+        if (0..=63).contains(&value).not() {
+            return Err(());
+        }
+        write_address_bits(self.address_transmitter_fifo_trigger_level, 0..=5, value);
+        Ok(())
+
+        // TODO: remove
+        /*assert!(value < 2u32.pow(6));
+        for index in 0..=5 {
+            let action = if value.read_bit(index) {
+                set_address_bit
+            } else {
+                clear_address_bit
+            };
+            action(self.address_transmitter_fifo_trigger_level, index);
+        }*/
+    }
+
+    // TODO: modem registers
+
+    /// Set at what receiver FIFO buffer value an interrupt is generated.
+    #[inline]
+    pub fn set_receiver_fifo_trigger_value(&self, value: u32) -> Result<(), ()> {
+        if (0..=63).contains(&value).not() {
+            return Err(());
+        }
+        write_address_bits(self.address_receiver_fifo_trigger_level, 0..=5, value);
+        Ok(())
+
+        /*
+        assert!(value < 2u32.pow(6));
+        for index in 0..=5 {
+            let action = if value.read_bit(index) {
+                set_address_bit
+            } else {
+                clear_address_bit
+            };
+            action(self.address_receiver_fifo_trigger_level, index);
+        }
+        */
+    }
+
+    // TODO: channel status register
+
+    // TODO: reset registers
+    /// Reset peripheral.
+    ///
+    /// TODO: maybe implement using slcr registers?
+    #[inline]
+    pub fn reset(&self) {
+        self.reset_receiver();
+        self.reset_transmitter();
+        write_to_address(self.address_control, 0x128);
+        write_to_address(self.address_mode, 0);
+        write_to_address(self.address_interrupt_disable, 0xFFFF_FFFF);
+        write_to_address(self.address_channel_interrupt_status, 0xFFFF_FFFF);
+        // TODO
+        write_to_address(self.address_receiver_fifo_trigger_level, 0x20);
+        // TODO
+        write_to_address(self.address_transmitter_fifo_trigger_level, 0x20);
+    }
+
+    /// Enable or disable receiver and transmitter.
+    #[inline]
+    pub fn toggle(&self, enable: bool) {
+        self.toggle_receiving(enable);
+        self.toggle_transmitting(enable);
+    }
+
+    pub fn is_transmitter_fifo_nearly_full(&self) -> bool {
+        read_address_bit(self.address_channel_status, 14)
+    }
+
+    pub fn is_transmitter_fifo_trigger_reached(&self) -> bool {
+        read_address_bit(self.address_channel_status, 13)
+    }
+
+    pub fn is_receiver_flow_delay_trigger_reached(&self) -> bool {
+        read_address_bit(self.address_channel_status, 12)
+    }
+
+    pub fn is_transmitter_active(&self) -> bool {
+        read_address_bit(self.address_channel_status, 11)
+    }
+
+    pub fn is_receiver_active(&self) -> bool {
+        read_address_bit(self.address_channel_status, 10)
+    }
+
+    /// True if transmitter FIFO is full.
+    #[inline]
+    #[must_use]
+    pub fn is_transmitter_fifo_full(&self) -> bool {
+        read_address_bit(self.address_channel_status, 4)
+    }
+
+    /// True if transmitter FIFO is empty.
+    #[inline]
+    #[must_use]
+    pub fn is_transmitter_fifo_empty(&self) -> bool {
+        read_address_bit(self.address_channel_status, 3)
+    }
+
+    /// True if receiver FIFO is full.
+    #[inline]
+    #[must_use]
+    pub fn is_receiver_fifo_full(&self) -> bool {
+        read_address_bit(self.address_channel_status, 2)
+    }
+
+    /// True if receiver FIFO is empty.
+    #[inline]
+    #[must_use]
+    pub fn is_receiver_fifo_empty(&self) -> bool {
+        read_address_bit(self.address_channel_status, 1)
+    }
+
+    /// True if receiver FIFO has reached trigger level.
+    #[must_use]
+    pub fn is_receiver_fifo_trigger_reached(&self) -> bool {
+        read_address_bit(self.address_channel_status, 0)
+    }
+
     /// Configure UART with default configuration.
     ///
-    /// 1. Disable receiving and transmitting.
-    /// 2. Reset receiver and transmitter.
+    /// 1. Enable AMBA and reference clocks.
+    /// 2. Reset peripheral.
     /// 3. Use input clock without prescaling.
     /// 4. Disable parity bits.
     /// 5. Use one stop bit.
     /// 6. Use standard UART channel mode.
+    ///
+    /// # Errors
+    ///
+    /// - System level control registers are locked and they can not be unlocked.
     #[inline]
-    pub fn configure(&self) {
+    #[must_use]
+    pub fn configure(&self) -> Result<(), ()> {
+        use crate::peripheral::slcr::AmbaClockControl;
+        use crate::peripheral::slcr::SLCR;
+
+        // Check that system level control registers are unlocked.
+        if unsafe { SLCR.is_system_level_configuration_registers_locked() } {
+            unsafe { SLCR.toggle_system_level_configuration_registers(false) };
+        }
+        if unsafe { SLCR.is_system_level_configuration_registers_locked() } {
+            return Err(());
+        }
+        // Enable AMBA and reference clocks.
+        let target = match self.index {
+            DeviceIndex::Uart0 => AmbaClockControl::Uart0,
+            DeviceIndex::Uart1 => AmbaClockControl::Uart1,
+        };
+        unsafe { SLCR.toggle_amba_clocks(target, true) };
+        match self.index {
+            DeviceIndex::Uart0 => {
+                unsafe { SLCR.toggle_uart_0_reference_clock(true) };
+            }
+            DeviceIndex::Uart1 => {
+                unsafe { SLCR.toggle_uart_1_reference_clock(true) };
+            }
+        }
+
         self.toggle(false);
         self.reset();
         self.set_clock_source(ClockSource::UartRefClk);
@@ -597,34 +728,7 @@ impl Uart {
         self.set_parity(ParityType::Disabled);
         self.set_stop_bits(StopBits::One);
         self.set_channel_mode(ChannelMode::Normal);
-    }
-
-    /// Is true if transmitter FIFO is full.
-    #[inline]
-    #[must_use]
-    pub fn transmitter_fifo_is_full(&self) -> bool {
-        read_address_bit(self.address_channel_status, 4)
-    }
-
-    /// Is true if transmitter FIFO is empty.
-    #[inline]
-    #[must_use]
-    pub fn transmitter_fifo_is_empty(&self) -> bool {
-        read_address_bit(self.address_channel_status, 3)
-    }
-
-    /// Is true if receiver FIFO is full.
-    #[inline]
-    #[must_use]
-    pub fn receiver_fifo_is_full(&self) -> bool {
-        read_address_bit(self.address_channel_status, 2)
-    }
-
-    /// Is true if receiver FIFO is empty.
-    #[inline]
-    #[must_use]
-    pub fn receiver_fifo_is_empty(&self) -> bool {
-        read_address_bit(self.address_channel_status, 1)
+        Ok(())
     }
 
     // TODO:
@@ -634,79 +738,86 @@ impl Uart {
     // 3. FIFO empty interrupt -> send bytes N..M
 
     /// Transmit one byte.
+    ///
+    /// This function blocks.
     #[inline]
     pub fn transmit_byte(&self, byte: u8) {
         // Wait until transmit buffer has space for more bytes.
-        while self.transmitter_fifo_is_full() {
-            nop();
-        }
+        while self.is_transmitter_fifo_full() {}
         write_to_address(self.address_transmit_and_receive_fifo, byte as u32);
     }
 
-    /// Transmit a string without ending the line.
+    /// Transmit string.
+    ///
+    /// This function blocks.
     #[inline]
-    pub fn print(&self, string: &str) {
+    pub fn transmit_string(&self, string: &str) {
         for byte in string.as_bytes() {
             self.transmit_byte(*byte);
         }
     }
 
-    /// Transmit a string and end the line.
+    /// Transmit line.
+    ///
+    /// This function blocks.
     #[inline]
-    pub fn println(&self, string: &str) {
-        self.print(string);
-        self.print("\r\n");
+    pub fn transmit_line(&self, line: &str) {
+        self.transmit_string(line);
+        self.transmit_string("\r\n");
     }
 
-    /// Try to receive byte.
+    /// Receive one byte.
+    ///
+    /// This function blocks.
+    #[must_use]
+    pub fn receive_byte(&self) -> u8 {
+        while self.is_receiver_fifo_empty() {}
+        let value = read_from_address(self.address_transmit_and_receive_fifo);
+        value as u8
+    }
+
+    /* TODO: requires heapless string
+    pub fn receive_string(&self) -> &str {}
+
+    pub fn receive_line(&self) -> &str {}
+    */
+
+    /// Try to receive one byte.
     #[inline]
     #[must_use]
     pub fn try_receive_byte(&self) -> Option<u8> {
-        if self.receiver_fifo_is_empty() {
+        if self.is_receiver_fifo_empty() {
             None
         } else {
-            Some(read_from_address(self.address_transmit_and_receive_fifo) as u8)
+            let value = read_from_address(self.address_transmit_and_receive_fifo);
+            let byte = value as u8;
+            Some(byte)
         }
     }
 
-    /// Read UART interrupt causes.
-    #[inline]
-    #[must_use]
-    pub fn read_interrupt_cause(&self) -> InterruptCauses {
-        let unmasked = read_from_address(self.address_channel_interrupt_status);
-        let mask = read_from_address(self.address_interrupt_mask);
-        let value = unmasked.bitand(mask);
-        InterruptCauses::new(value)
-    }
-
-    /// Clear UART interrupt cause.
-    #[inline]
-    pub fn clear_interrupt_cause(&self, cause: InterruptCause) {
-        let index = cause.bit_index();
-        set_address_bit(self.address_channel_interrupt_status, index);
-    }
-
+    /*
     /// Clear all UART interrupt causes.
     #[inline]
     pub fn clear_all_interrupt_causes(&self) {
         write_to_address(self.address_channel_interrupt_status, 0xFFFF_FFFF);
     }
+    */
 
+    // TODO: set baud rate
     /*pub fn set_baud_rate(&self) {
         self.toggle(false);
-
-
         self.reset();
     }*/
 }
 
 /// UART 0 base address.
-pub const ADDRESS_UART0_BASE: u32 = 0xE000_0000;
+const ADDRESS_UART0_BASE: u32 = 0xE000_0000;
 /// UART 1 base address.
-pub const ADDRESS_UART1_BASE: u32 = 0xE000_1000;
+const ADDRESS_UART1_BASE: u32 = 0xE000_1000;
 
 /// UART 0 peripheral.
 pub static mut UART0: Uart = Uart {
+    index: DeviceIndex::Uart0,
     address_control: (ADDRESS_UART0_BASE + 0x00) as *mut u32,
     address_mode: (ADDRESS_UART0_BASE + 0x04) as *mut u32,
     address_interrupt_enable: (ADDRESS_UART0_BASE + 0x08) as *mut u32,
@@ -727,6 +838,7 @@ pub static mut UART0: Uart = Uart {
 
 /// UART 1 peripheral.
 pub static mut UART1: Uart = Uart {
+    index: DeviceIndex::Uart1,
     address_control: (ADDRESS_UART1_BASE + 0x00) as *mut u32,
     address_mode: (ADDRESS_UART1_BASE + 0x04) as *mut u32,
     address_interrupt_enable: (ADDRESS_UART1_BASE + 0x08) as *mut u32,
@@ -747,12 +859,12 @@ pub static mut UART1: Uart = Uart {
 
 impl core::fmt::Write for Uart {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        unsafe { UART0.print(s) }
+        unsafe { UART0.transmit_string(s) }
         Ok(())
     }
 }
 
-/// Print text using `UART0`.
+/// Print formatted string using [`UART0`](crate::peripheral::uart::UART0).
 #[macro_export]
 macro_rules! sprint {
     ($s:expr) => {
@@ -771,7 +883,7 @@ macro_rules! sprint {
     };
 }
 
-/// Print line using `UART0`.
+/// Print formatted line using [`UART0`](crate::peripheral::uart::UART0).
 #[macro_export]
 macro_rules! sprintln {
     () => {
