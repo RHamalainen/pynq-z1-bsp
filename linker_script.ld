@@ -14,6 +14,18 @@ SECTIONS {
         *(.text)
     } > RAM
 
+    .rodata : {
+        _rodata_start = .;
+        *(.rodata);
+        _rodata_final = .;
+    } > RAM
+
+    .data : {
+        _data_start = .;
+        *(.data);
+        _data_final = .;
+    } > RAM
+
     .bss : {
         _bss_start = .;
         *(.bss);
