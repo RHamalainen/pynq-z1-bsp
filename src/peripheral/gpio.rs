@@ -99,6 +99,7 @@ impl InterruptEdgeTriggeringMode {
     }
 }
 
+// TODO: hide fields to pub(crate)
 /// Interface for a GPIO bank.
 #[derive(Clone, Copy)]
 pub struct Bank {
@@ -408,6 +409,21 @@ impl Gpio {
             clear_address_bit
         };
         action(bank.address_interrupt_any_edge_sensitive, bit_index);
+    }
+}
+
+impl core::fmt::Display for Gpio {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mio0_directions = unsafe { self.banks[0].address_direction_mode.read_volatile() };
+        let mio1_directions = unsafe { self.banks[1].address_direction_mode.read_volatile() };
+        let emio0_directions = unsafe { self.banks[2].address_direction_mode.read_volatile() };
+        let emio1_directions = unsafe { self.banks[3].address_direction_mode.read_volatile() };
+        // TODO: maybe provide other info too
+        write!(
+            f,
+            "gpio, mio0 dir=0b{:0>32b}, mio1 dir={:0>32b}, emio0 dir={:0>32b}, emio1 dir={:0>32b}",
+            mio0_directions, mio1_directions, emio0_directions, emio1_directions
+        )
     }
 }
 
