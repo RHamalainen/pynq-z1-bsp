@@ -5,7 +5,7 @@
 //! ```ignore
 //! UART0::configure();
 //! UART0::toggle(true);
-//! UART0::transmit2_line("Hello, World!");
+//! UART0::transmit_line("Hello, World!");
 //! ```
 //!
 //! # TODO
@@ -15,6 +15,7 @@
 // TODO: separate to receiver and transmitter substructs
 
 use crate::common::bitman::ReadBitwise;
+use crate::common::bitman::SetBitwise;
 use crate::common::instruction::nop;
 use crate::common::memman::clear_address_bit;
 use crate::common::memman::read_address_bit;
@@ -29,6 +30,22 @@ use core::ops::Not;
 pub enum DeviceIndex {
     Uart0,
     Uart1,
+}
+
+impl DeviceIndex {
+    pub fn as_u32(self) -> u32 {
+        match self {
+            Self::Uart0 => 0,
+            Self::Uart1 => 1,
+        }
+    }
+}
+
+impl core::fmt::Display for DeviceIndex {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let index = self.as_u32();
+        write!(f, "uart{index}")
+    }
 }
 
 /// UART clock source configuration.
@@ -50,6 +67,24 @@ impl ClockSource {
             Self::UartRefClk => false,
             Self::UartRefClkDiv8 => true,
         }
+    }
+
+    pub fn from_bool(value: bool) -> Self {
+        if value {
+            Self::UartRefClkDiv8
+        } else {
+            Self::UartRefClk
+        }
+    }
+}
+
+impl core::fmt::Display for ClockSource {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = match self {
+            Self::UartRefClk => "pure reference clock",
+            Self::UartRefClkDiv8 => "reference clock prescaled with 8",
+        };
+        write!(f, "{name}")
     }
 }
 
@@ -76,6 +111,24 @@ impl CharacterLength {
             Self::Seven => 0b10,
             Self::Six => 0b11,
         }
+    }
+
+    pub fn from_u32(value: u32) -> Result<Self, ()> {
+        let result = match value {
+            0b00 => Self::Eight,
+            0b10 => Self::Seven,
+            0b11 => Self::Six,
+            _ => {
+                return Err(());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl core::fmt::Display for CharacterLength {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.as_u32())
     }
 }
 
@@ -111,6 +164,33 @@ impl ParityType {
             Self::Disabled => 0b100,
         }
     }
+
+    pub fn from_u32(value: u32) -> Result<Self, ()> {
+        let result = match value {
+            0b000 => Self::Even,
+            0b001 => Self::Odd,
+            0b010 => Self::ForcedTo0,
+            0b011 => Self::ForcedTo1,
+            0b100 => Self::Disabled,
+            _ => {
+                return Err(());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl core::fmt::Display for ParityType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = match self {
+            Self::Even => "even",
+            Self::Odd => "odd",
+            Self::ForcedTo0 => "forced to 0",
+            Self::ForcedTo1 => "forced to 1",
+            Self::Disabled => "disabled",
+        };
+        write!(f, "{name}")
+    }
 }
 
 /// How many stop bits are detected when receiving or generated when transmitting.
@@ -136,6 +216,29 @@ impl StopBits {
             Self::OneAndHalf => 0b01,
             Self::Two => 0b10,
         }
+    }
+
+    pub fn from_u32(value: u32) -> Result<Self, ()> {
+        let result = match value {
+            0b00 => Self::One,
+            0b01 => Self::OneAndHalf,
+            0b10 => Self::Two,
+            _ => {
+                return Err(());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl core::fmt::Display for StopBits {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = match self {
+            Self::One => "1",
+            Self::OneAndHalf => "1,5",
+            Self::Two => "2",
+        };
+        write!(f, "{name}")
     }
 }
 
@@ -170,6 +273,31 @@ impl ChannelMode {
             Self::LocalLoopback => 0b10,
             Self::RemoteLoopback => 0b11,
         }
+    }
+
+    pub fn from_u32(value: u32) -> Result<Self, ()> {
+        let result = match value {
+            0b00 => Self::Normal,
+            0b01 => Self::AutomaticEcho,
+            0b10 => Self::LocalLoopback,
+            0b11 => Self::RemoteLoopback,
+            _ => {
+                return Err(());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl core::fmt::Display for ChannelMode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = match self {
+            Self::Normal => "normal",
+            Self::AutomaticEcho => "automatic echo",
+            Self::LocalLoopback => "local loopback",
+            Self::RemoteLoopback => "remote loopback",
+        };
+        write!(f, "{name}")
     }
 }
 
@@ -273,7 +401,7 @@ impl Interrupt {
 
 /// UART interrupt's causes.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct InterruptCauses {
     /// Receiver FIFO level reached given trigger level.
     pub receiver_fifo_trigger: bool,
@@ -439,6 +567,19 @@ impl Uart {
 
     // TODO: stop transmitter break
 
+    /// Get parity bit configuration.
+    pub fn get_parity(&self) -> Result<ParityType, ()> {
+        let address = self.address_mode;
+        let value = read_from_address(address);
+        let mut result = 0u32;
+        for (index, bit_index) in (3..=5u32).into_iter().enumerate() {
+            if value.read_bit(bit_index) {
+                result.set_bit(index as u32);
+            }
+        }
+        ParityType::from_u32(result)
+    }
+
     /// Set parity bit configuration.
     #[inline]
     pub fn set_parity(&self, value: ParityType) {
@@ -452,6 +593,14 @@ impl Uart {
         }
     }
 
+    /// Get clock source configuration.
+    pub fn get_clock_source(&self) -> ClockSource {
+        let address = self.address_mode;
+        let value = read_from_address(address);
+        let result = value.read_bit(0);
+        ClockSource::from_bool(result)
+    }
+
     /// Set clock source configuration.
     #[inline]
     pub fn set_clock_source(&self, value: ClockSource) {
@@ -461,6 +610,19 @@ impl Uart {
             clear_address_bit
         };
         action(self.address_mode, 0);
+    }
+
+    /// Get character length configuration.
+    pub fn get_character_length(&self) -> Result<CharacterLength, ()> {
+        let address = self.address_mode;
+        let value = read_from_address(address);
+        let mut result = 0u32;
+        for (index, bit_index) in (1..=2u32).into_iter().enumerate() {
+            if value.read_bit(bit_index) {
+                result.set_bit(index as u32);
+            }
+        }
+        CharacterLength::from_u32(result)
     }
 
     /// Set character length configuration.
@@ -476,6 +638,19 @@ impl Uart {
         }
     }
 
+    /// Get stop bits configuration.
+    pub fn get_stop_bits(&self) -> Result<StopBits, ()> {
+        let address = self.address_mode;
+        let value = read_from_address(address);
+        let mut result = 0u32;
+        for (index, bit_index) in (6..=7u32).into_iter().enumerate() {
+            if value.read_bit(bit_index) {
+                result.set_bit(index as u32);
+            }
+        }
+        StopBits::from_u32(result)
+    }
+
     /// Set stop bits configuration.
     #[inline]
     pub fn set_stop_bits(&self, value: StopBits) {
@@ -487,6 +662,19 @@ impl Uart {
             };
             action(self.address_mode, bit_index);
         }
+    }
+
+    /// Get channel mode configuration.
+    pub fn get_channel_mode(&self) -> Result<ChannelMode, ()> {
+        let address = self.address_mode;
+        let value = read_from_address(address);
+        let mut result = 0u32;
+        for (index, bit_index) in (8..=9u32).into_iter().enumerate() {
+            if value.read_bit(bit_index) {
+                result.set_bit(index as u32);
+            }
+        }
+        ChannelMode::from_u32(result)
     }
 
     /// Set channel mode configuration.
@@ -525,7 +713,7 @@ impl Uart {
     /// Also disabled interrupts are returned.
     #[inline]
     #[must_use]
-    pub fn read_unmaked_interrupt_causes(&self) -> InterruptCauses {
+    pub fn read_unmasked_interrupt_causes(&self) -> InterruptCauses {
         let unmasked = read_from_address(self.address_channel_interrupt_status);
         InterruptCauses::new(unmasked)
     }
@@ -549,11 +737,28 @@ impl Uart {
         set_address_bit(self.address_channel_interrupt_status, index);
     }
 
+    /// Clear all interrupts.
+    pub fn clear_all_interrupts(&self) {
+        write_to_address(self.address_channel_interrupt_status, 0xFFFF_FFFF);
+    }
+
     // TODO: order registers
 
     // TODO: baud rate register
 
     // TODO: timeout
+
+    /// Get at what transmitter FIFO buffer value an interrupt is generated.
+    pub fn get_transmitter_fifo_trigger_value(&self) -> u32 {
+        let address = self.address_transmitter_fifo_trigger_level;
+        let mut result = 0;
+        for index in 0..=5 {
+            if read_address_bit(address, index) {
+                result.set_bit(index);
+            }
+        }
+        result
+    }
 
     /// Set at what transmitter FIFO buffer value an interrupt is generated.
     #[inline]
@@ -561,11 +766,7 @@ impl Uart {
         if (0..=63).contains(&value).not() {
             return Err(());
         }
-        write_address_bits(self.address_transmitter_fifo_trigger_level, 0..=5, value);
-        Ok(())
-
-        // TODO: remove
-        /*assert!(value < 2u32.pow(6));
+        // TODO: fix memacc error with this
         for index in 0..=5 {
             let action = if value.read_bit(index) {
                 set_address_bit
@@ -573,10 +774,23 @@ impl Uart {
                 clear_address_bit
             };
             action(self.address_transmitter_fifo_trigger_level, index);
-        }*/
+        }
+        Ok(())
     }
 
     // TODO: modem registers
+
+    /// Get at what receiver FIFO buffer value an interrupt is generated.
+    pub fn get_receiver_fifo_trigger_value(&self) -> u32 {
+        let address = self.address_receiver_fifo_trigger_level;
+        let mut result = 0;
+        for index in 0..=5 {
+            if read_address_bit(address, index) {
+                result.set_bit(index);
+            }
+        }
+        result
+    }
 
     /// Set at what receiver FIFO buffer value an interrupt is generated.
     #[inline]
@@ -584,11 +798,7 @@ impl Uart {
         if (0..=63).contains(&value).not() {
             return Err(());
         }
-        write_address_bits(self.address_receiver_fifo_trigger_level, 0..=5, value);
-        Ok(())
-
-        /*
-        assert!(value < 2u32.pow(6));
+        // TODO: fix memacc error with this
         for index in 0..=5 {
             let action = if value.read_bit(index) {
                 set_address_bit
@@ -597,17 +807,20 @@ impl Uart {
             };
             action(self.address_receiver_fifo_trigger_level, index);
         }
-        */
+        Ok(())
     }
 
     // TODO: channel status register
 
+    /*
     // TODO: reset registers
     /// Reset peripheral.
     ///
     /// TODO: maybe implement using slcr registers?
+    ///
+    /// TODO: does not work as expected
     #[inline]
-    pub fn reset(&self) {
+    fn reset(&self) {
         self.reset_receiver();
         self.reset_transmitter();
         write_to_address(self.address_control, 0x128);
@@ -619,6 +832,7 @@ impl Uart {
         // TODO
         write_to_address(self.address_transmitter_fifo_trigger_level, 0x20);
     }
+    */
 
     /// Enable or disable receiver and transmitter.
     #[inline]
@@ -627,22 +841,32 @@ impl Uart {
         self.toggle_transmitting(enable);
     }
 
+    /// True if transmitter FIFO is nearly full.
+    #[must_use]
     pub fn is_transmitter_fifo_nearly_full(&self) -> bool {
         read_address_bit(self.address_channel_status, 14)
     }
 
+    /// True if transmitter FIFO trigger level has been reached.
+    #[must_use]
     pub fn is_transmitter_fifo_trigger_reached(&self) -> bool {
         read_address_bit(self.address_channel_status, 13)
     }
 
+    /// True if receiver flow delay trigger level has been reached.
+    #[must_use]
     pub fn is_receiver_flow_delay_trigger_reached(&self) -> bool {
         read_address_bit(self.address_channel_status, 12)
     }
 
+    /// True if transmitter is currently active.
+    #[must_use]
     pub fn is_transmitter_active(&self) -> bool {
         read_address_bit(self.address_channel_status, 11)
     }
 
+    /// True if receiver is currently active.
+    #[must_use]
     pub fn is_receiver_active(&self) -> bool {
         read_address_bit(self.address_channel_status, 10)
     }
@@ -722,7 +946,10 @@ impl Uart {
         }
 
         self.toggle(false);
-        self.reset();
+        self.reset_receiver();
+        self.reset_transmitter();
+        self.clear_all_interrupts();
+        // TODO: fix self.reset();
         self.set_clock_source(ClockSource::UartRefClk);
         self.set_character_length(CharacterLength::Eight);
         self.set_parity(ParityType::Disabled);
@@ -810,6 +1037,27 @@ impl Uart {
     }*/
 }
 
+impl core::fmt::Display for Uart {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let rx_trigger = self.get_receiver_fifo_trigger_value();
+        let tx_trigger = self.get_transmitter_fifo_trigger_value();
+
+        let interrupts = unsafe { self.address_interrupt_mask.read_volatile() };
+        write!(
+            f,
+            "{}, receiver: trigger {rx_trigger}, transmitter: trigger {tx_trigger}, interrupts: 0b{interrupts:0>32b}",
+            self.index,
+        )
+    }
+}
+
+impl core::fmt::Write for Uart {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        unsafe { UART0.transmit_string(s) }
+        Ok(())
+    }
+}
+
 /// UART 0 base address.
 const ADDRESS_UART0_BASE: u32 = 0xE000_0000;
 /// UART 1 base address.
@@ -856,13 +1104,6 @@ pub static mut UART1: Uart = Uart {
     address_flow_control_delay: (ADDRESS_UART1_BASE + 0x38) as *mut u32,
     address_transmitter_fifo_trigger_level: (ADDRESS_UART1_BASE + 0x44) as *mut u32,
 };
-
-impl core::fmt::Write for Uart {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        unsafe { UART0.transmit_string(s) }
-        Ok(())
-    }
-}
 
 /// Print formatted string using [`UART0`](crate::peripheral::uart::UART0).
 #[macro_export]
