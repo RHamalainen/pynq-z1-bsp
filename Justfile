@@ -19,15 +19,11 @@ debug example: (build-example example)
     @arm-none-eabi-gdb -x scripts/run.gdb target/armv7a-none-eabi/release/examples/{{example}}
 
 run-on-board:
-    @xsct scripts/run_on_board.tcl
-    @#xsct -interactive scripts/run_on_board.tcl
+    @xsct -interactive scripts/run_on_board.tcl
 
 build-all-examples:
     @just build-example hello
     @just build-example gpio
-    @just build-example leds
-    @just build-example timer
-    @just build-example dma
     @just build-example uart_interaction
 
 doc open="--open":

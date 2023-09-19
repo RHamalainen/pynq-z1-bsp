@@ -25,5 +25,6 @@ fn main() {
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
+    unsafe { UART0.transmit_line("Hello, World!") };
     loop {}
 }

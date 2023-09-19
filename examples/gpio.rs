@@ -19,7 +19,7 @@ fn main() {
         GPIO.toggle_mio_interrupt(0, true);
         GPIO.toggle_mio_interrupt(1, true);
 
-        UART0.configure();
+        UART0.configure().unwrap();
         UART0.toggle(true);
     }
 
@@ -29,9 +29,9 @@ fn main() {
         }
         unsafe {
             if GPIO.read_mio_input(0) {
-                UART0.println("MIO pin 0 is high.");
+                UART0.transmit_line("MIO pin 0 is high.");
             } else {
-                UART0.println("MIO pin 0 is low.");
+                UART0.transmit_line("MIO pin 0 is low.");
             }
             if GPIO.read_mio_output(1) {
                 GPIO.write_mio_output(1, false);
