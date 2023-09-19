@@ -1,3 +1,5 @@
+set windows-shell := ["powershell.exe", "-c"]
+
 [private]
 default:
     @just --list --unsorted
@@ -17,7 +19,8 @@ debug example: (build-example example)
     @arm-none-eabi-gdb -x scripts/run.gdb target/armv7a-none-eabi/release/examples/{{example}}
 
 run-on-board:
-    @xsct -interactive scripts/run_on_board.tcl
+    @xsct scripts/run_on_board.tcl
+    @#xsct -interactive scripts/run_on_board.tcl
 
 build-all-examples:
     @just build-example hello
