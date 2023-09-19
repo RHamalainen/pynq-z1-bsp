@@ -12,16 +12,14 @@ use pynq_z1_bsp::peripheral::uart::UART0;
 #[link_section = ".text"]
 fn main() {
     unsafe {
-        UART0.configure();
+        UART0.configure().unwrap();
         UART0.toggle(true);
     }
     loop {
         for _ in 0..1_000 {
             nop();
         }
-        unsafe {
-            UART0.println("Hello, World!");
-        }
+        unsafe { UART0.transmit_line("Hello, World!") };
     }
 }
 
